@@ -41,23 +41,23 @@ const totals = computed(() => {
         </thead>
         <tbody>
           <tr v-for="r in visibleRows" :key="r.i">
-            <td>{{ r.i }}</td>
-            <td><b style="color:#232a23;font-weight:600">{{ fmt(r.payment) }}</b></td>
-            <td class="principal">{{ fmt(r.principal) }}</td>
-            <td class="interest">{{ fmt(r.interest) }}</td>
-            <td>{{ fmt(r.balance) }}</td>
-            <td>{{ fmt(r.cum) }}</td>
+            <td data-label="期数">{{ r.i }}</td>
+            <td data-label="月供"><b style="color:#232a23;font-weight:600">{{ fmt(r.payment) }}</b></td>
+            <td class="principal" data-label="本金">{{ fmt(r.principal) }}</td>
+            <td class="interest" data-label="利息">{{ fmt(r.interest) }}</td>
+            <td data-label="剩余本金">{{ fmt(r.balance) }}</td>
+            <td data-label="累计利息">{{ fmt(r.cum) }}</td>
           </tr>
           <tr v-if="showEllipsis" class="period-end">
             <td colspan="6" style="text-align:center;color:#969c8a;font-size:12px">… 仅显示前 {{ PER_PAGE }} 期 …</td>
           </tr>
           <tr class="total">
-            <td>合计</td>
-            <td>{{ fmt(totals.pay) }}</td>
-            <td class="principal">{{ fmt(store.loanTotalWan * 10000) }}</td>
-            <td class="interest">{{ fmt(totals.int) }}</td>
-            <td>—</td>
-            <td>—</td>
+            <td data-label="合计">合计</td>
+            <td data-label="月供">{{ fmt(totals.pay) }}</td>
+            <td class="principal" data-label="本金">{{ fmt(store.loanTotalWan * 10000) }}</td>
+            <td class="interest" data-label="利息">{{ fmt(totals.int) }}</td>
+            <td data-label="剩余本金">—</td>
+            <td data-label="累计利息">—</td>
           </tr>
         </tbody>
       </table>

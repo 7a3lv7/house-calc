@@ -36,6 +36,16 @@
       radial-gradient(900px 600px at -10% 110%, rgba(47,107,82,.08), transparent 55%);
   }
 
+  /* PWA standalone 防护：杜绝任何横向溢出/回弹 */
+  html, body{ overflow-x: hidden; }
+  body{ overscroll-behavior-x: none; }
+  @supports (overflow-x: clip){
+    html, body{ overflow-x: clip; }
+  }
+
+  /* 禁用双指缩放 / 双击缩放（保留页面滚动；iOS Safari 13+ 生效） */
+  html, body{ touch-action: pan-x pan-y; }
+
   /* ---- grain overlay ---- */
   .grain{
     position: fixed; inset: 0;
@@ -483,6 +493,39 @@
     .methods.three{ grid-template-columns: 1fr; }
     .combo-row{ grid-template-columns: 1fr; }
     .combo-plus{ display: none; }
+  }
+  /* 手机窄屏：还款计划表改为卡片式布局，消除横向滚动条 */
+  @media (max-width: 640px){
+    .table-scroll{ overflow-x: visible; }
+    table, thead, tbody, tr, th, td{ display: block; }
+    table{ width: 100%; min-width: 0; }
+    thead{ display: none; }
+    tbody tr{
+      border: 1px solid var(--line); border-radius: 6px;
+      margin: 0 0 12px; padding: 6px 14px 10px;
+      background: rgba(255, 255, 255, .45);
+    }
+    tbody tr:hover td{ background: transparent; }
+    tbody td{
+      display: flex; align-items: center; justify-content: space-between;
+      text-align: right;
+      border-bottom: 1px dashed var(--line-soft);
+      padding: 7px 2px;
+    }
+    tbody td:first-child{ text-align: right; }
+    tbody td:last-child{ border-bottom: none; }
+    tbody td::before{
+      content: attr(data-label);
+      font-family: var(--font-body); font-weight: 400;
+      font-size: 12px; letter-spacing: .04em;
+      color: var(--ink-faint);
+    }
+    tbody td[colspan]{ display: block; text-align: center; border: none; }
+    tbody td[colspan]::before{ content: none; }
+    tbody tr.total td{
+      border-top: none; border-bottom: 1px dashed var(--line-soft);
+    }
+    tbody tr.total td:last-child{ border-bottom: none; }
   }
   @media (prefers-reduced-motion: reduce){
     *, *::before, *::after{ animation: none !important; transition: none !important; }
