@@ -59,6 +59,8 @@ function buildLoanRows(s, method) {
 }
 
 export const useLoanStore = defineStore('loan', {
+  persist: true, // 输入状态持久化到 localStorage，重开自动恢复
+
   state: () => ({
     loanType: 'commercial',    // commercial | fund | combined
     inputMode: 'price',        // price（总价+首付） | loan（直接输入贷款额）

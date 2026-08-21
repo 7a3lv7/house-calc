@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
+import { persistPlugin } from './stores/persist'
 import './style.css'
 
 /* PWA standalone：禁用双指缩放 / 双击缩放（兼容不支持 touch-action 的旧版 iOS） */
@@ -14,4 +15,7 @@ document.addEventListener('touchend', (e) => {
   lastTouchEnd = now
 }, { passive: false })
 
-createApp(App).use(createPinia()).mount('#app')
+const pinia = createPinia()
+pinia.use(persistPlugin)
+
+createApp(App).use(pinia).mount('#app')
