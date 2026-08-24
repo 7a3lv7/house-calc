@@ -33,6 +33,13 @@ function niceMax(v) {
   const step = mag / 2
   return Math.ceil(v / step) * step
 }
+/* 期数显示：一年内为「第 X 期」，超过一年为「第 X 年 Y 月」 */
+function periodLabel(p) {
+  if (p <= 12) return `第 ${p} 期`
+  const y = Math.floor((p - 1) / 12) + 1
+  const m = ((p - 1) % 12) + 1
+  return `第 ${y} 年 ${m} 月`
+}
 const chart = computed(() => {
   const eq = store.seriesEqual.map((r) => r.payment)
   const pr = store.seriesPrincipal.map((r) => r.payment)
@@ -176,7 +183,7 @@ function copyResult() {
         <line v-for="t in chart.yTicks" :key="'g' + t.v" :x1="64" :y1="t.y" :x2="702" :y2="t.y" stroke="rgba(35,42,35,.09)" stroke-dasharray="2 4"/>
         <text v-for="t in chart.yTicks" :key="'l' + t.v" :x="56" :y="t.y + 4" text-anchor="end">{{ fmt(t.v) }}</text>
         <line v-for="i in chart.xTicks" :key="'x' + i" :x1="chart.x(i)" :y1="250" :x2="chart.x(i)" :y2="254" stroke="rgba(35,42,35,.25)"/>
-        <text v-for="i in chart.xTicks" :key="'xt' + i" :x="chart.x(i)" :y="268" text-anchor="middle">第 {{ i + 1 }} 期</text>
+        <text v-for="i in chart.xTicks" :key="'xt' + i" :x="chart.x(i)" :y="268" text-anchor="middle">{{ periodLabel(i + 1) }}</text>
         <path :d="chart.otherPath" fill="none" stroke="rgba(185,85,47,.45)" stroke-width="1.6" stroke-dasharray="5 5" vector-effect="non-scaling-stroke"/>
         <path :d="chart.selArea" fill="url(#gradSel)" stroke="none"/>
         <path :d="chart.selPath" fill="none" stroke="#1e4d3b" stroke-width="2.4" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
@@ -185,11 +192,11 @@ function copyResult() {
         <template v-if="chart.crossIdx >= 0">
           <line :x1="chart.x(chart.crossIdx)" :y1="chart.y(chart.crossV)" :x2="chart.x(chart.crossIdx)" :y2="250" stroke="rgba(161,126,46,.5)" stroke-dasharray="2 3"/>
           <circle :cx="chart.x(chart.crossIdx)" :cy="chart.y(chart.crossV)" r="4.5" fill="#a17e2e" stroke="#f3edde" stroke-width="2"/>
-          <text :x="chart.x(chart.crossIdx)" :y="chart.y(chart.crossV) - 10" text-anchor="middle" fill="#a17e2e" font-size="11.5" font-weight="600">第 {{ chart.crossIdx + 1 }} 期</text>
+          <text :x="chart.x(chart.crossIdx)" :y="chart.y(chart.crossV) - 10" text-anchor="middle" fill="#a17e2e" font-size="11.5" font-weight="600">{{ periodLabel(chart.crossIdx + 1) }}</text>
         </template>
       </svg>
       <p v-if="chart.crossIdx >= 0" class="chart-note">
-        两曲线于<b>第 {{ chart.crossIdx + 1 }} 期</b>相交,此后等额本金月供开始低于等额本息
+        两曲线于<b>{{ periodLabel(chart.crossIdx + 1) }}</b>相交,此后等额本金月供开始低于等额本息
       </p>
     </div>
 
