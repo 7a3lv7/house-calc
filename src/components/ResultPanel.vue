@@ -71,7 +71,9 @@ const chart = computed(() => {
     yTicks: [0, 0.5, 1].map((t) => ({ v: yMax * t, y: y(yMax * t) })),
     xTicks: n > 1 ? [0, Math.floor((n - 1) / 2), n - 1] : [0],
     crossIdx,                          // 交点所在期（0 基）
-    crossV: crossIdx >= 0 ? pr[crossIdx] : 0  // 交点处的月供
+    crossV: crossIdx >= 0 ? pr[crossIdx] : 0,  // 交点处的月供
+    prFirst: pr[0],                    // 等额本金首期月供
+    prLast: pr[n - 1]                  // 等额本金末期月供
   }
 })
 
@@ -188,6 +190,9 @@ function copyResult() {
         <path :d="chart.selArea" fill="url(#gradSel)" stroke="none"/>
         <path :d="chart.selPath" fill="none" stroke="#1e4d3b" stroke-width="2.4" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
         <circle :cx="chart.x(chart.n - 1)" :cy="chart.y(chart.selV[chart.n - 1])" r="3.5" fill="#b9552f" stroke="#f3edde" stroke-width="1.5"/>
+        <!-- 等额本金首期 / 末期月供数值 -->
+        <text :x="chart.x(0) + 6" :y="chart.y(chart.prFirst) + 4" text-anchor="start" fill="#b9552f" font-size="11.5" font-weight="600" stroke="#f3edde" stroke-width="3" paint-order="stroke">¥{{ fmt(chart.prFirst) }}</text>
+        <text :x="chart.x(chart.n - 1) - 6" :y="chart.y(chart.prLast) - 8" text-anchor="end" fill="#b9552f" font-size="11.5" font-weight="600" stroke="#f3edde" stroke-width="3" paint-order="stroke">¥{{ fmt(chart.prLast) }}</text>
         <!-- 两曲线交点 -->
         <template v-if="chart.crossIdx >= 0">
           <line :x1="chart.x(chart.crossIdx)" :y1="chart.y(chart.crossV)" :x2="chart.x(chart.crossIdx)" :y2="250" stroke="rgba(161,126,46,.5)" stroke-dasharray="2 3"/>
