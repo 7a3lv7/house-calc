@@ -226,22 +226,20 @@ onMounted(syncRateInputs)
               :style="{ '--fill': fundSliderFill() }"
               aria-label="公积金贷款金额（万元）"
             >
-            <div class="field-foot">
-              <div class="num-input">
-                <input type="number" :min="0" :max="Math.max(store.fundComm.total, 1)" step="1" :value="store.fundComm.fund" @input="fundWanNum.onInput" @blur="fundWanNum.onBlur" aria-label="公积金贷款金额（万元）">
-                <span class="suffix">万</span>
-              </div>
-            </div>
           </div>
-          <div class="combo-plus" aria-hidden="true">+</div>
           <div class="combo-part">
             <div class="combo-label"><span class="dot comm"></span>商贷部分<small class="auto-tag">自动</small></div>
             <div class="combo-readout">{{ store.fundComm.comm.toLocaleString('zh-CN') }} 万</div>
-            <div class="field-foot">
-              <div class="num-input">
-                <input type="number" :min="0" :max="Math.max(store.fundComm.total, 1)" step="1" :value="store.fundComm.comm" @input="commWanNum.onInput" @blur="commWanNum.onBlur" aria-label="商业贷款金额（万元）">
-                <span class="suffix">万</span>
-              </div>
+          </div>
+          <div class="combo-inputs">
+            <div class="num-input">
+              <input type="number" :min="0" :max="Math.max(store.fundComm.total, 1)" step="1" :value="store.fundComm.fund" @input="fundWanNum.onInput" @blur="fundWanNum.onBlur" aria-label="公积金贷款金额（万元）">
+              <span class="suffix">万</span>
+            </div>
+            <div class="combo-plus" aria-hidden="true">+</div>
+            <div class="num-input">
+              <input type="number" :min="0" :max="Math.max(store.fundComm.total, 1)" step="1" :value="store.fundComm.comm" @input="commWanNum.onInput" @blur="commWanNum.onBlur" aria-label="商业贷款金额（万元）">
+              <span class="suffix">万</span>
             </div>
           </div>
         </div>
@@ -306,39 +304,37 @@ onMounted(syncRateInputs)
         <div class="combo-row">
           <div class="combo-part">
             <div class="combo-label"><span class="dot fund"></span>公积金利率</div>
-            <div class="field-foot">
-              <div class="num-input">
-                <input ref="rateFundEl" type="number" min="0" max="12" step="0.01" @input="onRateFundInput" aria-label="公积金贷款利率（%）">
-                <span class="suffix">%</span>
-              </div>
-              <div class="chips" role="group" aria-label="公积金常用利率">
-                <button
-                  v-for="p in FUND_RATE_CHIPS"
-                  :key="p"
-                  class="chip"
-                  :class="{ active: Math.abs(store.rateFund - p) < 0.005 }"
-                  @click="store.setRateFund(p)"
-                >{{ p.toFixed(3).replace(/0$/, '') }}%</button>
-              </div>
+            <div class="chips" role="group" aria-label="公积金常用利率">
+              <button
+                v-for="p in FUND_RATE_CHIPS"
+                :key="p"
+                class="chip"
+                :class="{ active: Math.abs(store.rateFund - p) < 0.005 }"
+                @click="store.setRateFund(p)"
+              >{{ p.toFixed(3).replace(/0$/, '') }}%</button>
             </div>
           </div>
-          <div class="combo-plus" aria-hidden="true">+</div>
           <div class="combo-part">
             <div class="combo-label"><span class="dot comm"></span>商贷利率</div>
-            <div class="field-foot">
-              <div class="num-input">
-                <input ref="rateCommEl" type="number" min="0" max="12" step="0.01" @input="onRateCommInput" aria-label="商业贷款利率（%）">
-                <span class="suffix">%</span>
-              </div>
-              <div class="chips" role="group" aria-label="商贷常用利率">
-                <button
-                  v-for="p in COMM_RATE_CHIPS"
-                  :key="p"
-                  class="chip"
-                  :class="{ active: Math.abs(store.rateComm - p) < 0.005 }"
-                  @click="store.setRateComm(p)"
-                >{{ p.toFixed(2) }}%</button>
-              </div>
+            <div class="chips" role="group" aria-label="商贷常用利率">
+              <button
+                v-for="p in COMM_RATE_CHIPS"
+                :key="p"
+                class="chip"
+                :class="{ active: Math.abs(store.rateComm - p) < 0.005 }"
+                @click="store.setRateComm(p)"
+              >{{ p.toFixed(2) }}%</button>
+            </div>
+          </div>
+          <div class="combo-inputs">
+            <div class="num-input">
+              <input ref="rateFundEl" type="number" min="0" max="12" step="0.01" @input="onRateFundInput" aria-label="公积金贷款利率（%）">
+              <span class="suffix">%</span>
+            </div>
+            <div class="combo-plus" aria-hidden="true">+</div>
+            <div class="num-input">
+              <input ref="rateCommEl" type="number" min="0" max="12" step="0.01" @input="onRateCommInput" aria-label="商业贷款利率（%）">
+              <span class="suffix">%</span>
             </div>
           </div>
         </div>

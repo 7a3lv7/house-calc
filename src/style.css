@@ -235,10 +235,19 @@
   .method.active .m-name{ color: var(--green); }
 
   .methods.three{ grid-template-columns: repeat(3, 1fr); }
-    .combo-row{ display: grid; grid-template-columns: 1fr auto 1fr; gap: 18px; align-items: start; }
+  .combo-row{
+    display: grid; grid-template-columns: 1fr 1fr;
+    column-gap: 18px; row-gap: 12px; align-items: start;
+  }
+  /* 组合区底部共享输入行：两个数字输入框 + 居中的「+」号 */
+  .combo-inputs{
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 16px;
+    flex-wrap: wrap;
+  }
   .combo-plus{
-    align-self: center; font-size: 24px; line-height: 1; color: var(--ink-faint);
-    font-family: var(--font-mono); padding-top: 30px; user-select: none;
+    flex: none; font-size: 22px; line-height: 1; color: var(--ink-faint);
+    font-family: var(--font-mono); user-select: none; padding: 0 2px;
   }
   .combo-label{
     display: flex; align-items: center; gap: 7px;
@@ -248,7 +257,7 @@
   .combo-label .dot{ width: 8px; height: 8px; border-radius: 50%; flex: none; }
   .combo-label .dot.fund{ background: var(--green-bright); box-shadow: 0 0 0 3px rgba(47,107,82,.15); }
   .combo-label .dot.comm{ background: var(--terracotta); box-shadow: 0 0 0 3px rgba(185,85,47,.15); }
-  .combo-part .num-input input[type="number"]{ width: 116px; }
+  .combo-inputs .num-input input[type="number"]{ width: 116px; }
   .field .field-readout .sep{ margin: 0 6px; color: var(--ink-faint); }
 
   .mode-switch-row{ text-align: center; margin-top: -8px; }
@@ -494,7 +503,6 @@
     .methods{ grid-template-columns: 1fr; }
     .methods.three{ grid-template-columns: 1fr; }
     .combo-row{ grid-template-columns: 1fr; }
-    .combo-plus{ display: none; }
   }
   /* 手机窄屏：还款计划表改为卡片式布局，消除横向滚动条 */
   @media (max-width: 640px){
