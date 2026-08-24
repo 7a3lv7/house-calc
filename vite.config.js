@@ -26,9 +26,20 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest,woff2}'],
-        navigateFallback: '/index.html',
+        // 不预缓存 index.html：导航走 NetworkFirst，在线时永远拿到最新页面，
+        // 避免安装版应用一直启动旧 bundle（曲线图「不跟随输入更新」多为旧版缓存所致）
+        navigateFallback: undefined, // 显式禁用插件默认的预缓存兜底路由(否则它会优先于 NetworkFirst 匹配)
+        globPatterns: ['**/*.{js,css,png,svg,ico,webmanifest,woff2}'],
         runtimeCaching: [
+          {
+            // 页面导航：优先网络（3 秒超时），离线回退上次缓存
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages',
+              networkTimeoutSeconds: 3
+            }
+          },
           {
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
             handler: 'CacheFirst',
@@ -38,10 +49,8 @@ export default defineConfig({
             }
           }
         ]
-      },
-      devOptions: {
-        enabled: true // 开发模式下也注册 SW，方便直接测试「安装应用」
       }
+      // 说明：开发模式不注册 SW（避免与 HMR 缓存冲突）；测试「安装应用」请用 npm run build + npm run preview
     })
   ],
   server: {

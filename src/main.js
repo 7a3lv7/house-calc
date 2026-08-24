@@ -15,6 +15,14 @@ document.addEventListener('touchend', (e) => {
   lastTouchEnd = now
 }, { passive: false })
 
+/* SW 就绪后把首页预热进运行时缓存（NetworkFirst 的 pages 缓存），
+   保证首次安装后离线也能打开（首次加载不受 SW 控制，需手动补一次缓存） */
+if ('serviceWorker' in navigator && 'caches' in window) {
+  navigator.serviceWorker.ready
+    .then(() => caches.open('pages').then((c) => c.add('/')))
+    .catch(() => {})
+}
+
 const pinia = createPinia()
 pinia.use(persistPlugin)
 
