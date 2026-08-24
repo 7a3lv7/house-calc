@@ -90,8 +90,9 @@
 
   /* ---- layout ---- */
   .layout{
-    display: grid; grid-template-columns: 5fr 7fr; gap: clamp(20px, 3vw, 36px);
-    margin-top: 34px; align-items: start;
+    /* 上下单列布局：贷款参数（含每月公积金金额）在上，结果（每月月供）紧随其下 */
+    display: grid; grid-template-columns: 1fr; gap: 26px;
+    margin: 34px auto 0; max-width: 900px; align-items: start;
   }
 
   .panel{
@@ -422,7 +423,8 @@
 
   /* ---- table ---- */
   .table-wrap{
-    margin-top: 34px; background: var(--panel); border: 1px solid var(--line);
+    margin: 34px auto 0; max-width: 900px;
+    background: var(--panel); border: 1px solid var(--line);
     border-radius: 6px; box-shadow: var(--shadow);
     animation: rise .6s cubic-bezier(.22,1,.36,1) both; animation-delay: .26s;
     overflow: hidden;
