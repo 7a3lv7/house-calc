@@ -44,7 +44,9 @@ const chart = computed(() => {
   const eq = store.seriesEqual.map((r) => r.payment)
   const pr = store.seriesPrincipal.map((r) => r.payment)
   const n = eq.length
-  const W = 720, H = 280, ml = 64, mr = 18, mt = 16, mb = 30
+  const W = 720
+  /* ---- 上区：月供走势 ---- */
+  const H = 280, ml = 64, mr = 18, mt = 16, mb = 30
   const plotW = W - ml - mr
   const plotH = H - mt - mb
   const yMax = niceMax(Math.max(eq[0], pr[0]))
@@ -62,6 +64,35 @@ const chart = computed(() => {
     }
   }
 
+  /* ---- 下区：本金与利息构成（两种方式并排堆叠，共享期数轴） ---- */
+  const P = store.loanTotalWan * 10000
+  const comp = { top: 300, plotTop: 308, plotBot: 452, mid: 380, gap: 16 }
+  const leftX = (i) => 64 + (comp.mid - comp.gap - 64) * (n > 1 ? i / (n - 1) : 0)
+  const rightX = (i) => (comp.mid + comp.gap) + (702 - (comp.mid + comp.gap)) * (n > 1 ? i / (n - 1) : 0)
+  // 两半共用较大的总还款作为 y 轴上限，保证高度可比
+  const sumTotal = (rows) => { const r = rows[n - 1]; return P - r.balance + r.cum }
+  const compYMax = Math.max(sumTotal(store.seriesEqual), sumTotal(store.seriesPrincipal))
+  const yc = (v) => comp.plotBot - (comp.plotBot - comp.plotTop) * (v / compYMax)
+  const fwd = (xx, arr) => arr.map((v, i) => (i ? 'L' : 'M') + ' ' + xx(i).toFixed(1) + ' ' + yc(v).toFixed(1)).join(' ')
+  const rev = (xx, arr) => {
+    let d = ''
+    for (let i = n - 1; i >= 0; i--) d += ' L ' + xx(i).toFixed(1) + ' ' + yc(arr[i]).toFixed(1)
+    return d
+  }
+  const base = comp.plotBot
+  const buildHalf = (rows, xx) => {
+    const cumP = rows.map((r) => P - r.balance)
+    const cumI = rows.map((r) => r.cum)
+    const cumT = cumP.map((v, i) => v + cumI[i])
+    return {
+      prinArea: fwd(xx, cumP) + ` L ${xx(n - 1).toFixed(1)} ${base} L ${xx(0).toFixed(1)} ${base} Z`,
+      intArea: fwd(xx, cumT) + ` L ${xx(n - 1).toFixed(1)} ${yc(cumP[n - 1]).toFixed(1)} ` + rev(xx, cumP) + ' Z',
+      prinEnd: cumP[n - 1],
+      intEnd: cumI[n - 1],
+      totalEnd: cumT[n - 1]
+    }
+  }
+
   return {
     n, x, y, yMax,
     selV, otherV,
@@ -74,42 +105,14 @@ const chart = computed(() => {
     crossV: crossIdx >= 0 ? pr[crossIdx] : 0,  // 交点处的月供
     prFirst: pr[0],                    // 等额本金首期月供
     prLast: pr[n - 1],                 // 等额本金末期月供
-    eqValue: eq[0]                     // 等额本息月供（平直线高度）
-  }
-})
-
-/* 本金与利息构成（累计堆叠面积，两种还款方式并排对比） */
-const composition = computed(() => {
-  const P = store.loanTotalWan * 10000
-  const build = (rows) => rows.map((r) => ({ p: P - r.balance, i: r.cum }))
-  const eq = build(store.seriesEqual)
-  const pr = build(store.seriesPrincipal)
-  const n = eq.length
-  const W = 340, H = 170, ml = 46, mr = 10, mt = 10, mb = 20
-  const plotW = W - ml - mr
-  const plotH = H - mt - mb
-  const base = H - mb
-  const yMax = Math.max(eq[n - 1].p + eq[n - 1].i, pr[n - 1].p + pr[n - 1].i)
-  const x = (i) => ml + plotW * (n > 1 ? i / (n - 1) : 0)
-  const y = (v) => H - mb - plotH * (v / yMax)
-  const fwd = (arr) => arr.map((v, i) => (i ? 'L' : 'M') + ' ' + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ')
-  const rev = (arr) => {
-    let d = ''
-    for (let i = n - 1; i >= 0; i--) d += ' L ' + x(i).toFixed(1) + ' ' + y(arr[i]).toFixed(1)
-    return d
-  }
-  const areas = (data) => {
-    const cumP = data.map((d) => d.p)
-    const cumT = data.map((d) => d.p + d.i)
-    return {
-      prinArea: fwd(cumP) + ` L ${x(n - 1).toFixed(1)} ${base} L ${x(0).toFixed(1)} ${base} Z`,
-      intArea: fwd(cumT) + ` L ${x(n - 1).toFixed(1)} ${y(cumP[n - 1]).toFixed(1)} ` + rev(cumP) + ' Z',
-      prinEnd: cumP[n - 1],
-      intEnd: cumT[n - 1] - cumP[n - 1],
-      totalEnd: cumT[n - 1]
+    eqValue: eq[0],                    // 等额本息月供（平直线高度）
+    comp: {
+      eq: buildHalf(store.seriesEqual, leftX),
+      pr: buildHalf(store.seriesPrincipal, rightX),
+      mid: comp.mid, gap: comp.gap, plotTop: comp.plotTop, plotBot: comp.plotBot,
+      leftX, rightX
     }
   }
-  return { eq: areas(eq), pr: areas(pr), n }
 })
 
 /* ---- 复制 ---- */
@@ -200,7 +203,7 @@ function copyResult() {
 
     <div class="chart-wrap">
       <div class="chart-head">
-        <h3>月供走势</h3>
+        <h3>月供走势 · 本金利息构成</h3>
         <div class="legend">
           <span class="lg" :class="{ cur: store.method === 'equal' }">
             <span class="sw solid"></span>等额本息<span v-if="store.method === 'equal'" class="tag">当前</span>
@@ -208,9 +211,12 @@ function copyResult() {
           <span class="lg" :class="{ cur: store.method === 'principal' }">
             <span class="sw dash"></span>等额本金<span v-if="store.method === 'principal'" class="tag">当前</span>
           </span>
+          <span class="lg-sep" aria-hidden="true"></span>
+          <span class="lg"><span class="sw solid" style="background:#2f6b52"></span>本金</span>
+          <span class="lg"><span class="sw solid" style="background:#b9552f"></span>利息</span>
         </div>
       </div>
-      <svg class="chart" viewBox="0 0 720 280" role="img" :aria-label="`${store.METHOD_CN[store.method]}月供曲线，首期约 ¥${fmt(chart.selV[0])}，末期约 ¥${fmt(chart.selV[chart.n - 1])}；另一条曲线为${store.method === 'equal' ? '等额本金' : '等额本息'}`">
+      <svg class="chart" viewBox="0 0 720 470" role="img" :aria-label="`${store.METHOD_CN[store.method]}月供曲线，首期约 ¥${fmt(chart.selV[0])}，末期约 ¥${fmt(chart.selV[chart.n - 1])}；下区为两种方式累计本金与利息构成`">
         <defs>
           <linearGradient id="gradSel" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stop-color="#2f6b52" stop-opacity=".22"/>
@@ -237,36 +243,30 @@ function copyResult() {
           <circle :cx="chart.x(chart.crossIdx)" :cy="chart.y(chart.crossV)" r="4.5" fill="#a17e2e" stroke="#f3edde" stroke-width="2"/>
           <text :x="chart.x(chart.crossIdx)" :y="chart.y(chart.crossV) - 10" text-anchor="middle" fill="#a17e2e" font-size="11.5" font-weight="600">{{ periodLabel(chart.crossIdx + 1) }}</text>
         </template>
+
+        <!-- 分隔线 + 下区：本金与利息构成 -->
+        <line x1="64" y1="290" x2="702" y2="290" stroke="rgba(35,42,35,.14)" stroke-dasharray="3 4"/>
+        <text x="64" y="302" text-anchor="start" font-size="10.5" letter-spacing=".1em">累计本金 / 利息</text>
+        <text :x="(64 + chart.comp.mid - chart.comp.gap) / 2" y="316" text-anchor="middle" font-size="11.5" font-weight="700">等额本息</text>
+        <text :x="(chart.comp.mid + chart.comp.gap + 702) / 2" y="316" text-anchor="middle" font-size="11.5" font-weight="700">等额本金</text>
+        <line :x1="chart.comp.mid" :y1="chart.comp.plotTop" :x2="chart.comp.mid" :y2="chart.comp.plotBot" stroke="rgba(35,42,35,.12)" stroke-dasharray="2 3"/>
+        <path :d="chart.comp.eq.intArea" fill="rgba(185,85,47,.55)"/>
+        <path :d="chart.comp.eq.prinArea" fill="rgba(47,107,82,.5)"/>
+        <path :d="chart.comp.pr.intArea" fill="rgba(185,85,47,.4)"/>
+        <path :d="chart.comp.pr.prinArea" fill="rgba(47,107,82,.35)"/>
+        <line :x1="64" :y1="chart.comp.plotBot" :x2="chart.comp.mid - chart.comp.gap" :y2="chart.comp.plotBot" stroke="rgba(35,42,35,.25)"/>
+        <line :x1="chart.comp.mid + chart.comp.gap" :y1="chart.comp.plotBot" :x2="702" :y2="chart.comp.plotBot" stroke="rgba(35,42,35,.25)"/>
       </svg>
+
+      <!-- 两种方式的本金 / 利息 / 总还款汇总 -->
+      <div class="comp-totals">
+        <span class="ct"><b class="ct-name">等额本息</b>本金 <b class="p">¥{{ fmt(chart.comp.eq.prinEnd) }}</b> · 利息 <b class="i">¥{{ fmt(chart.comp.eq.intEnd) }}</b> · 总还款 <b>¥{{ fmt(chart.comp.eq.totalEnd) }}</b></span>
+        <span class="ct"><b class="ct-name">等额本金</b>本金 <b class="p">¥{{ fmt(chart.comp.pr.prinEnd) }}</b> · 利息 <b class="i">¥{{ fmt(chart.comp.pr.intEnd) }}</b> · 总还款 <b>¥{{ fmt(chart.comp.pr.totalEnd) }}</b></span>
+      </div>
+
       <p v-if="chart.crossIdx >= 0" class="chart-note">
         两曲线于<b>{{ periodLabel(chart.crossIdx + 1) }}</b>相交,此后等额本金月供开始低于等额本息
       </p>
-    </div>
-
-    <!-- 本金与利息构成：两种方式累计本金/利息对比 -->
-    <div class="composition" aria-label="本金与利息构成">
-      <div class="comp-head">
-        <h3>本金与利息构成</h3>
-        <div class="legend">
-          <span class="lg"><span class="sw solid" style="background:#2f6b52"></span>本金</span>
-          <span class="lg"><span class="sw solid" style="background:#b9552f"></span>利息</span>
-        </div>
-      </div>
-      <div class="comp-grid">
-        <div v-for="m in [{ key: 'eq', name: '等额本息' }, { key: 'pr', name: '等额本金' }]" :key="m.key" class="comp-card">
-          <div class="comp-name">{{ m.name }}</div>
-          <svg class="comp-chart" :viewBox="'0 0 340 170'" role="img" :aria-label="`${m.name}累计本金与利息构成`">
-            <path :d="composition[m.key].intArea" fill="rgba(185,85,47,.55)"/>
-            <path :d="composition[m.key].prinArea" fill="rgba(47,107,82,.5)"/>
-            <line x1="46" y1="150" x2="330" y2="150" stroke="rgba(35,42,35,.25)" stroke-width="1"/>
-          </svg>
-          <div class="comp-totals">
-            <span class="p">本金 <b>¥{{ fmt(composition[m.key].prinEnd) }}</b></span>
-            <span class="i">利息 <b>¥{{ fmt(composition[m.key].intEnd) }}</b></span>
-            <span class="t">总还款 <b>¥{{ fmt(composition[m.key].totalEnd) }}</b></span>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="compare" v-html="store.compareText"></div>
