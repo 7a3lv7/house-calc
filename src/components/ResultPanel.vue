@@ -101,9 +101,16 @@ function copyResult() {
         </div>
       </div>
 
-      <div class="result-sub">
-        <span>{{ store.subLine1 }}</span><br>
-        首月利息 <b>{{ money(store.summary.first.interest) }}</b> · 末月利息 <b>{{ money(store.summary.last.interest) }}</b>
+      <div class="result-summary" aria-label="贷款概要">
+        <div
+          v-for="(it, i) in store.summaryItems"
+          :key="it.label"
+          class="sum-row"
+          :class="{ 'sum-div': i === 4 }"
+        >
+          <span>{{ it.label }}</span>
+          <b>{{ it.value }}</b>
+        </div>
       </div>
     </div>
 

@@ -130,6 +130,25 @@ export const useLoanStore = defineStore('loan', {
       return `${this.METHOD_CN[this.method]} · ${this.typeLine} · ${this.summary.n} 期 · ${this.rateLine}`
     },
 
+    /* 结果区右侧「贷款概要」卡片的数据行 */
+    summaryItems() {
+      const fc = this.isCombined ? this.fundComm : null
+      const compose = fc
+        ? `组合贷 · 公积金 ${fc.fund}万 + 商贷 ${fc.comm}万`
+        : this.TYPE_CN[this.loanType]
+      const rate = fc
+        ? `公积金 ${this.rateFund.toFixed(2)}% · 商贷 ${this.rateComm.toFixed(2)}%`
+        : this.activeRate.toFixed(2) + '%'
+      return [
+        { label: '还款方式', value: this.METHOD_CN[this.method] },
+        { label: '贷款组成', value: compose },
+        { label: '期限', value: this.summary.n + ' 期' },
+        { label: '年利率', value: rate },
+        { label: '首月利息', value: money(this.summary.first.interest) },
+        { label: '末月利息', value: money(this.summary.last.interest) }
+      ]
+    },
+
     /* 两种还款方式的利息 / 首月对比提示（含 HTML 高亮） */
     compareText() {
       const eq = this.seriesEqual
