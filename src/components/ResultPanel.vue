@@ -200,7 +200,15 @@ function copyResult() {
     <div class="chart-wrap">
       <div class="chart-head">
         <h3>月供走势 · 本金利息构成</h3>
-        <div class="legend">
+        <div class="chart-head-actions">
+          <button
+            class="method-switch"
+            type="button"
+            @click="store.setMethod(store.method === 'equal' ? 'principal' : 'equal')"
+          >
+            ⇄ 切换方式 · {{ store.method === 'equal' ? '等额本金' : '等额本息' }}
+          </button>
+          <div class="legend">
           <span class="lg" :class="{ cur: store.method === 'equal' }">
             <span class="sw solid"></span>等额本息<span v-if="store.method === 'equal'" class="tag">当前</span>
           </span>
@@ -210,6 +218,7 @@ function copyResult() {
           <span class="lg-sep" aria-hidden="true"></span>
           <span class="lg"><span class="sw solid" style="background:#2f6b52"></span>本金</span>
           <span class="lg"><span class="sw solid" style="background:#b9552f"></span>利息</span>
+          </div>
         </div>
       </div>
       <svg class="chart" viewBox="0 0 720 280" role="img" :aria-label="`${store.METHOD_CN[store.method]}月供曲线，首期约 ¥${fmt(chart.selV[0])}，末期约 ¥${fmt(chart.selV[chart.n - 1])}；柱状图为每期本金(绿)与利息(陶土)构成；另一条曲线为${store.method === 'equal' ? '等额本金' : '等额本息'}`">

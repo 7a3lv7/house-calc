@@ -434,6 +434,20 @@
   .legend .lg-sep{
     width: 1px; height: 14px; background: var(--line); margin: 0 2px; align-self: center;
   }
+  .chart-head-actions{ display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .method-switch{
+    font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .06em;
+    color: var(--green-bright);
+    background: rgba(47, 107, 82, .08);
+    border: 1px solid rgba(47, 107, 82, .35);
+    border-radius: 999px;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: all .16s ease;
+    white-space: nowrap;
+  }
+  .method-switch:hover{ background: var(--green-bright); color: var(--paper); border-color: var(--green-bright); }
+  .method-switch:active{ transform: translateY(1px); }
   /* 同图下区两种方式的本金/利息/总还款汇总 */
   .comp-totals{
     display: flex; flex-wrap: wrap; gap: 6px 26px; justify-content: center;
