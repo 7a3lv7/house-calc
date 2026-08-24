@@ -449,9 +449,8 @@
   }
   .btn:hover{ background: var(--ink); color: var(--paper); }
   .btn:active{ transform: translateY(1px); }
-  .btn .ok{ display: none; color: var(--green-bright); }
-  .btn.copied .ok{ display: inline; }
-  .btn.copied .txt{ display: none; }
+  .btn .ok{ color: var(--green-bright); }
+  .result-actions .btn{ min-width: 132px; } /* 复制按钮两种文案等宽，点击不塌缩 */
 
   /* ---- table ---- */
   .table-wrap{
