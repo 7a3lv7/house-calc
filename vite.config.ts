@@ -33,7 +33,7 @@ export default defineConfig({
         runtimeCaching: [
           {
             // 页面导航：优先网络（3 秒超时），离线回退上次缓存
-            urlPattern: ({ request }) => request.mode === 'navigate',
+            urlPattern: ({ request }: { request: Request }) => request.mode === 'navigate',
             handler: 'NetworkFirst',
             options: {
               cacheName: 'pages',

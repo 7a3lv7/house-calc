@@ -1,34 +1,91 @@
 import { defineStore } from 'pinia'
 
-export const fmt = (v) => Math.round(v).toLocaleString('zh-CN')
-export const money = (v) => '¥' + fmt(v)
+/* ---------- 类型 ---------- */
+export type LoanType = 'commercial' | 'fund' | 'combined'
+export type Method = 'equal' | 'principal'
+export type InputMode = 'price' | 'loan'
 
-const r1 = (v) => Math.round(v * 10) / 10
+export interface AmortRow {
+  i: number
+  payment: number
+  principal: number
+  interest: number
+  balance: number
+  cum: number
+}
+
+export interface LoanState {
+  loanType: LoanType
+  inputMode: InputMode
+  price: number        // 房屋总价（万）
+  downRatio: number    // 首付比例（%）
+  loan: number         // 直接输入模式下的贷款金额（万）
+  fundWan: number      // 组合贷中公积金部分（万），商贷自动补齐
+  fundMonthly: number  // 每月公积金抵扣金额（元）
+  rateComm: number     // 商贷年利率（%）
+  rateFund: number     // 公积金年利率（%）
+  years: number        // 贷款年限
+  method: Method
+  expanded: boolean
+}
+
+export interface SummaryInfo {
+  P: number
+  totalPay: number
+  totalInt: number
+  first: AmortRow
+  last: AmortRow
+  M: number
+  n: number
+}
+
+export interface FundComm {
+  total: number
+  fund: number
+  comm: number
+}
+
+export interface RatePreset {
+  label: string
+  v: number
+}
+
+export interface SummaryItem {
+  label: string
+  value: string
+}
+
+/* ---------- 工具 ---------- */
+export const fmt = (v: number): string => Math.round(v).toLocaleString('zh-CN')
+export const money = (v: number): string => '¥' + fmt(v)
+
+const r1 = (v: number): number => Math.round(v * 10) / 10
 
 /* 单笔贷款逐月明细（等额本息 / 等额本金） */
-function buildSeries(amountWan, years, ratePct, method) {
+function buildSeries(amountWan: number, years: number, ratePct: number, method: Method): AmortRow[] {
   const P = amountWan * 10000
   const n = Math.max(1, Math.round(years * 12))
   const r = ratePct / 100 / 12
-  const rows = []
-  let balance, principalShare, interest, payment, cumInterest = 0
+  const rows: AmortRow[] = []
+  let balance = 0
+  let cumInterest = 0
 
   if (method === 'equal') {
     const M = r > 0 ? (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1) : P / n
     balance = P
     for (let i = 1; i <= n; i++) {
-      interest = balance * r
-      principalShare = M - interest
+      const interest = balance * r
+      const principalShare = M - interest
       balance = Math.max(0, balance - principalShare)
       cumInterest += interest
       rows.push({ i, payment: M, principal: principalShare, interest, balance, cum: cumInterest })
     }
   } else {
-    principalShare = P / n
+    const principalShare = P / n
     balance = P
     for (let i = 1; i <= n; i++) {
-      interest = Math.max(0, (P - principalShare * (i - 1)) * r)
-      payment = principalShare + interest
+      const interest = Math.max(0, (P - principalShare * (i - 1)) * r)
+      const payment = principalShare + interest
       balance = Math.max(0, P - principalShare * i)
       cumInterest += interest
       rows.push({ i, payment, principal: principalShare, interest, balance, cum: cumInterest })
@@ -38,7 +95,7 @@ function buildSeries(amountWan, years, ratePct, method) {
 }
 
 /* 按当前贷款类型组装整笔贷款明细（组合贷 = 公积金部分 + 商贷部分按月合并） */
-function buildLoanRows(s, method) {
+function buildLoanRows(s: LoanState, method: Method): AmortRow[] {
   const total = s.inputMode === 'price' ? r1(s.price * (1 - s.downRatio / 100)) : s.loan
   if (s.loanType === 'combined') {
     const fund = Math.min(Math.max(0, r1(s.fundWan)), total)
@@ -58,51 +115,56 @@ function buildLoanRows(s, method) {
   return buildSeries(total, s.years, rate, method)
 }
 
+/* ---------- store ---------- */
 export const useLoanStore = defineStore('loan', {
   persist: true, // 输入状态持久化到 localStorage，重开自动恢复
 
-  state: () => ({
-    loanType: 'commercial',    // commercial | fund | combined
-    inputMode: 'price',        // price（总价+首付） | loan（直接输入贷款额）
-    price: 150,                // 房屋总价（万）
-    downRatio: 30,             // 首付比例（%）
-    loan: 105,                 // 直接输入模式下的贷款金额（万）
-    fundWan: 60,               // 组合贷中公积金部分（万），商贷自动补齐
-    fundMonthly: 0,            // 每月公积金抵扣金额（元）
-    rateComm: 3.0,             // 商贷年利率（%）
-    rateFund: 2.85,            // 公积金年利率（%）
-    years: 30,                 // 贷款年限
-    method: 'equal',           // equal | principal
-    expanded: false            // 还款计划表是否展开
+  state: (): LoanState => ({
+    loanType: 'commercial', // commercial | fund | combined
+    inputMode: 'price',     // price（总价+首付） | loan（直接输入贷款额）
+    price: 150,
+    downRatio: 30,
+    loan: 105,
+    fundWan: 60,
+    fundMonthly: 0,
+    rateComm: 3.0,
+    rateFund: 2.85,
+    years: 30,
+    method: 'equal',
+    expanded: false
   }),
 
   getters: {
-    TYPE_CN: () => ({ commercial: '商业贷款', fund: '公积金贷款', combined: '组合贷款' }),
-    METHOD_CN: () => ({ equal: '等额本息', principal: '等额本金' }),
-    RATE_PRESETS: () => ({
+    TYPE_CN: (): Record<LoanType, string> => ({
+      commercial: '商业贷款', fund: '公积金贷款', combined: '组合贷款'
+    }),
+    METHOD_CN: (): Record<Method, string> => ({
+      equal: '等额本息', principal: '等额本金'
+    }),
+    RATE_PRESETS: (): Record<string, RatePreset[]> => ({
       fund: [{ label: '公积金 2.85%', v: 2.85 }, { label: '公积金 3.325%', v: 3.325 }],
       commercial: [{ label: '商贷 3.00%', v: 3.0 }, { label: '商贷 3.30%', v: 3.3 }]
     }),
 
-    isCombined: (s) => s.loanType === 'combined',
-    isPriceMode: (s) => s.inputMode === 'price',
-    activeRate: (s) => (s.loanType === 'fund' ? s.rateFund : s.rateComm),
+    isCombined: (s): boolean => s.loanType === 'combined',
+    isPriceMode: (s): boolean => s.inputMode === 'price',
+    activeRate: (s): number => (s.loanType === 'fund' ? s.rateFund : s.rateComm),
 
-    loanTotalWan: (s) => (s.inputMode === 'price' ? r1(s.price * (1 - s.downRatio / 100)) : s.loan),
-    downWan: (s) => r1(s.price - (s.inputMode === 'price' ? r1(s.price * (1 - s.downRatio / 100)) : s.loan)),
+    loanTotalWan: (s): number => (s.inputMode === 'price' ? r1(s.price * (1 - s.downRatio / 100)) : s.loan),
+    downWan: (s): number => r1(s.price - (s.inputMode === 'price' ? r1(s.price * (1 - s.downRatio / 100)) : s.loan)),
 
     /* 组合贷拆分：公积金部分可调，商贷部分自动补齐 */
-    fundComm: (s) => {
+    fundComm: (s): FundComm => {
       const total = s.inputMode === 'price' ? r1(s.price * (1 - s.downRatio / 100)) : s.loan
       const fund = Math.min(Math.max(0, r1(s.fundWan)), total)
       return { total, fund: r1(fund), comm: r1(total - fund) }
     },
 
-    series: (s) => buildLoanRows(s, s.method),
-    seriesEqual: (s) => buildLoanRows(s, 'equal'),
-    seriesPrincipal: (s) => buildLoanRows(s, 'principal'),
+    series: (s): AmortRow[] => buildLoanRows(s, s.method),
+    seriesEqual: (s): AmortRow[] => buildLoanRows(s, 'equal'),
+    seriesPrincipal: (s): AmortRow[] => buildLoanRows(s, 'principal'),
 
-    summary: (s) => {
+    summary: (s): SummaryInfo => {
       const rows = buildLoanRows(s, s.method)
       const P = (s.inputMode === 'price' ? r1(s.price * (1 - s.downRatio / 100)) : s.loan) * 10000
       let totalPay = 0
@@ -111,27 +173,27 @@ export const useLoanStore = defineStore('loan', {
       return { P, totalPay, totalInt, first: rows[0], last: rows[rows.length - 1], M: rows[0].payment, n: rows.length }
     },
 
-    netPay() {
+    netPay(): number {
       return Math.max(0, this.summary.M - this.fundMonthly)
     },
 
-    typeLine() {
+    typeLine(): string {
       if (this.isCombined) {
         const fc = this.fundComm
         return `组合贷 公积金 ${fc.fund}万 + 商贷 ${fc.comm}万`
       }
       return this.TYPE_CN[this.loanType]
     },
-    rateLine() {
+    rateLine(): string {
       if (this.isCombined) return `公积金 ${this.rateFund.toFixed(2)}% · 商贷 ${this.rateComm.toFixed(2)}%`
       return `年利率 ${this.activeRate.toFixed(2)}%`
     },
-    subLine1() {
+    subLine1(): string {
       return `${this.METHOD_CN[this.method]} · ${this.typeLine} · ${this.summary.n} 期 · ${this.rateLine}`
     },
 
     /* 结果区右侧「贷款概要」卡片的数据行 */
-    summaryItems() {
+    summaryItems(): SummaryItem[] {
       const fc = this.isCombined ? this.fundComm : null
       const compose = fc
         ? `组合贷 · 公积金 ${fc.fund}万 + 商贷 ${fc.comm}万`
@@ -150,7 +212,7 @@ export const useLoanStore = defineStore('loan', {
     },
 
     /* 两种还款方式的利息 / 首月对比提示（含 HTML 高亮） */
-    compareText() {
+    compareText(): string {
       const eq = this.seriesEqual
       const pr = this.seriesPrincipal
       const eqTotal = eq.reduce((a, r) => a + r.payment, 0)
@@ -165,7 +227,7 @@ export const useLoanStore = defineStore('loan', {
       return `若改选 <b>等额本息</b>：首月月供降至 <b>¥${fmt(eqFirst)}</b>，但总利息多付 <b>¥${fmt(diffInt)}</b>，且每月还款额固定不变。`
     },
 
-    copyText() {
+    copyText(): string {
       const res = this.summary
       const fc = this.isCombined ? this.fundComm : null
       const priceLine = this.isPriceMode
@@ -192,31 +254,33 @@ export const useLoanStore = defineStore('loan', {
         `总利息：${money(res.totalInt)}`,
         '─────────────',
         '结果仅供参考，以银行审批为准'
-      ].filter((x) => x).join('\n')
+      ].filter((x): x is string => Boolean(x)).join('\n')
     }
   },
 
   actions: {
-    setLoanType(t) { this.loanType = t },
-    setMethod(m) { this.method = m },
-    setYears(v) { this.years = Math.min(30, Math.max(1, Math.round(parseFloat(v)))) },
-    setPrice(v) { this.price = Math.min(5000, Math.max(1, parseFloat(v))) },
-    setDownRatio(v) { this.downRatio = Math.min(95, Math.max(0, parseFloat(v))) },
-    setLoan(v) { this.loan = Math.min(3000, Math.max(1, parseFloat(v))) },
-    setRate(v) {
-      const val = Math.min(12, Math.max(0, parseFloat(v)))
+    setLoanType(t: LoanType) { this.loanType = t },
+    setMethod(m: Method) { this.method = m },
+    setYears(v: number | string) { this.years = Math.min(30, Math.max(1, Math.round(parseFloat(String(v))))) },
+    setPrice(v: number | string) { this.price = Math.min(5000, Math.max(1, parseFloat(String(v)))) },
+    setDownRatio(v: number | string) { this.downRatio = Math.min(95, Math.max(0, parseFloat(String(v)))) },
+    setLoan(v: number | string) { this.loan = Math.min(3000, Math.max(1, parseFloat(String(v)))) },
+    setRate(v: number | string) {
+      const val = Math.min(12, Math.max(0, parseFloat(String(v))))
       if (this.loanType === 'fund') this.rateFund = val
       else this.rateComm = val
     },
-    setRateFund(v) { this.rateFund = Math.min(12, Math.max(0, parseFloat(v))) },
-    setRateComm(v) { this.rateComm = Math.min(12, Math.max(0, parseFloat(v))) },
-    setFundWan(v) { this.fundWan = Math.min(this.loanTotalWan, Math.max(0, r1(parseFloat(v)))) },
-    setCommWan(v) {
+    setRateFund(v: number | string) { this.rateFund = Math.min(12, Math.max(0, parseFloat(String(v)))) },
+    setRateComm(v: number | string) { this.rateComm = Math.min(12, Math.max(0, parseFloat(String(v)))) },
+    setFundWan(v: number | string) { this.fundWan = Math.min(this.loanTotalWan, Math.max(0, r1(parseFloat(String(v))))) },
+    setCommWan(v: number | string) {
       const total = this.loanTotalWan
-      const comm = Math.min(total, Math.max(0, r1(parseFloat(v))))
+      const comm = Math.min(total, Math.max(0, r1(parseFloat(String(v)))))
       this.fundWan = r1(total - comm)
     },
-    setFundMonthly(v) { this.fundMonthly = Math.min(50000, Math.max(0, Math.round(parseFloat(v) || 0))) },
+    setFundMonthly(v: number | string) {
+      this.fundMonthly = Math.min(50000, Math.max(0, Math.round(parseFloat(String(v)) || 0)))
+    },
     toggleInputMode() {
       if (this.inputMode === 'price') {
         this.inputMode = 'loan'

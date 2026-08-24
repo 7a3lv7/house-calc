@@ -1,41 +1,48 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
-import { useLoanStore, money } from '../stores/loan'
+import { useLoanStore, money, type LoanType } from '../stores/loan'
 
 const store = useLoanStore()
 
-const TYPES = [
+interface TypeOption {
+  key: LoanType
+  name: string
+  desc: string
+}
+const TYPES: TypeOption[] = [
   { key: 'commercial', name: '商业贷款', desc: 'LPR 浮动利率，额度高' },
   { key: 'fund', name: '公积金贷款', desc: '利率最低，额度受缴存限制' },
   { key: 'combined', name: '组合贷款', desc: '公积金 + 商贷搭配，兼顾利率与额度' }
 ]
-const DOWN_CHIPS = [20, 30, 40, 50]
-const YEAR_CHIPS = [5, 10, 15, 20, 25, 30]
-const FUND_MONTHLY_CHIPS = [0, 1000, 2000, 3000]
-const FUND_RATE_CHIPS = [2.85, 3.325]
-const COMM_RATE_CHIPS = [3.0, 3.3]
+const DOWN_CHIPS: number[] = [20, 30, 40, 50]
+const YEAR_CHIPS: number[] = [5, 10, 15, 20, 25, 30]
+const FUND_MONTHLY_CHIPS: number[] = [0, 1000, 2000, 3000]
+const FUND_RATE_CHIPS: number[] = [2.85, 3.325]
+const COMM_RATE_CHIPS: number[] = [3.0, 3.3]
 
 /* 滑块填充比例 */
-const pct = (v, min, max) => ((v - min) / (max - min) * 100) + '%'
-const priceFill = () => pct(store.price, 1, 3000)
-const loanFill = () => pct(store.loan, 1, 3000)
-const rateFill = () => pct(store.activeRate, 0.5, 6)
-const yearsFill = () => pct(store.years, 1, 30)
-const fundMonthlyFill = () => pct(store.fundMonthly, 0, 10000)
-const fundSliderFill = () => (store.fundComm.total > 0 ? store.fundComm.fund / store.fundComm.total * 100 : 0) + '%'
+const pct = (v: number, min: number, max: number): string => ((v - min) / (max - min) * 100) + '%'
+const priceFill = (): string => pct(store.price, 1, 3000)
+const loanFill = (): string => pct(store.loan, 1, 3000)
+const rateFill = (): string => pct(store.activeRate, 0.5, 6)
+const yearsFill = (): string => pct(store.years, 1, 30)
+const fundMonthlyFill = (): string => pct(store.fundMonthly, 0, 10000)
+const fundSliderFill = (): string => (store.fundComm.total > 0 ? store.fundComm.fund / store.fundComm.total * 100 : 0) + '%'
 
 /* 数字输入：解析后写入 store，并立即在 DOM 回显钳制后的合法值。
    避免受控绑定下「钳制结果与当前值相同 → 不重渲染 → 输入框残留非法文本」的问题；
    同时保留 :value 绑定以便滑块/快捷按钮/持久化恢复时同步显示 */
-function makeNumHandler(getVal, setter) {
+function makeNumHandler(getVal: () => number, setter: (v: number) => void) {
   return {
-    onInput: (e) => {
-      const v = parseFloat(e.target.value)
-      if (!isNaN(v)) { setter(v); e.target.value = String(getVal()) }
+    onInput: (e: Event): void => {
+      const el = e.target as HTMLInputElement
+      const v = parseFloat(el.value)
+      if (!isNaN(v)) { setter(v); el.value = String(getVal()) }
     },
-    onBlur: (e) => {
-      const v = parseFloat(e.target.value)
-      if (!isNaN(v)) { setter(v); e.target.value = String(getVal()) }
+    onBlur: (e: Event): void => {
+      const el = e.target as HTMLInputElement
+      const v = parseFloat(el.value)
+      if (!isNaN(v)) { setter(v); el.value = String(getVal()) }
     }
   }
 }
@@ -48,8 +55,8 @@ const fundWanNum = makeNumHandler(() => store.fundComm.fund, store.setFundWan)
 const commWanNum = makeNumHandler(() => store.fundComm.comm, store.setCommWan)
 
 /* 滑块 / 利率输入（本身在范围内或非受控）：仅解析写入即可 */
-const numInput = (fn) => (e) => {
-  const v = parseFloat(e.target.value)
+const numInput = (fn: (v: number) => void) => (e: Event): void => {
+  const v = parseFloat((e.target as HTMLInputElement).value)
   if (!isNaN(v)) fn(v)
 }
 const onFundWanSlider = numInput(store.setFundWan)
@@ -59,10 +66,10 @@ const onRateCommInput = numInput(store.setRateComm)
 
 /* 利率小数输入框：非受控，避免输入 "2.85" 时中间态被覆盖；
    外部变化（滑块/快捷利率/切换贷款类型）时才回填显示值 */
-const rateNumEl = ref(null)
-const rateFundEl = ref(null)
-const rateCommEl = ref(null)
-function syncRateInputs() {
+const rateNumEl = ref<HTMLInputElement | null>(null)
+const rateFundEl = ref<HTMLInputElement | null>(null)
+const rateCommEl = ref<HTMLInputElement | null>(null)
+function syncRateInputs(): void {
   if (rateNumEl.value && document.activeElement !== rateNumEl.value) rateNumEl.value.value = store.activeRate.toFixed(2)
   if (rateFundEl.value && document.activeElement !== rateFundEl.value) rateFundEl.value.value = store.rateFund.toFixed(2)
   if (rateCommEl.value && document.activeElement !== rateCommEl.value) rateCommEl.value.value = store.rateComm.toFixed(2)

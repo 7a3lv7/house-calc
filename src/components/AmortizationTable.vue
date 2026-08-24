@@ -1,15 +1,15 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
-import { useLoanStore, fmt } from '../stores/loan'
+import { useLoanStore, fmt, type AmortRow } from '../stores/loan'
 
 const store = useLoanStore()
 const PER_PAGE = 12
 
-const visibleRows = computed(() =>
+const visibleRows = computed<AmortRow[]>(() =>
   store.expanded ? store.series : store.series.slice(0, PER_PAGE)
 )
-const showEllipsis = computed(() => !store.expanded && store.series.length > PER_PAGE)
-const totals = computed(() => {
+const showEllipsis = computed<boolean>(() => !store.expanded && store.series.length > PER_PAGE)
+const totals = computed<{ pay: number; int: number }>(() => {
   let pay = 0
   let int = 0
   for (const r of store.series) {

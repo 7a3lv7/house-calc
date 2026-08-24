@@ -1,9 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import InputPanel from './components/InputPanel.vue'
 import ResultPanel from './components/ResultPanel.vue'
 import AmortizationTable from './components/AmortizationTable.vue'
 
-const today = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+const today: string = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
 </script>
 
 <template>

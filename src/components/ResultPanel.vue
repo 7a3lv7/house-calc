@@ -1,21 +1,21 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { useLoanStore, fmt, money } from '../stores/loan'
+import { useLoanStore, fmt, money, type AmortRow } from '../stores/loan'
 
 const store = useLoanStore()
 
 /* ---- 月供数字滚动动画 ---- */
 const shown = ref(0)
-let animId = null
-function animateTo(target) {
+let animId: number | null = null
+function animateTo(target: number): void {
   if (animId) cancelAnimationFrame(animId)
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   if (reduce) { shown.value = Math.round(target); return }
   const from = shown.value
   const t0 = performance.now()
   const dur = 650
-  const ease = (t) => 1 - Math.pow(1 - t, 3)
-  const step = (now) => {
+  const ease = (t: number): number => 1 - Math.pow(1 - t, 3)
+  const step = (now: number): void => {
     const p = Math.min(1, (now - t0) / dur)
     shown.value = Math.round(from + (target - from) * ease(p))
     animId = p < 1 ? requestAnimationFrame(step) : null
@@ -27,20 +27,44 @@ onMounted(() => animateTo(store.summary.M))
 onBeforeUnmount(() => { if (animId) cancelAnimationFrame(animId) })
 
 /* ---- 走势图 ---- */
-function niceMax(v) {
+function niceMax(v: number): number {
   if (v <= 0) return 1
   const mag = Math.pow(10, Math.floor(Math.log10(v)))
   const step = mag / 2
   return Math.ceil(v / step) * step
 }
 /* 期数显示：一年内为「第 X 期」，超过一年为「第 X 年 Y 月」 */
-function periodLabel(p) {
+function periodLabel(p: number): string {
   if (p <= 12) return `第 ${p} 期`
   const y = Math.floor((p - 1) / 12) + 1
   const m = ((p - 1) % 12) + 1
   return `第 ${y} 年 ${m} 月`
 }
-const chart = computed(() => {
+
+interface Tick { v: number; y: number }
+interface Bar { x: number; w: number; prinTop: number; intTop: number; prinH: number; intH: number }
+interface Totals { prinEnd: number; intEnd: number; totalEnd: number }
+interface ChartData {
+  n: number
+  x: (i: number) => number
+  y: (v: number) => number
+  yMax: number
+  selV: number[]
+  otherV: number[]
+  selPath: string
+  otherPath: string
+  yTicks: Tick[]
+  xTicks: number[]
+  crossIdx: number
+  crossV: number
+  prFirst: number
+  prLast: number
+  eqValue: number
+  bars: Bar[]
+  totals: { eq: Totals; pr: Totals }
+}
+
+const chart = computed<ChartData>(() => {
   const eq = store.seriesEqual.map((r) => r.payment)
   const pr = store.seriesPrincipal.map((r) => r.payment)
   const n = eq.length
@@ -49,9 +73,9 @@ const chart = computed(() => {
   const plotW = W - ml - mr
   const plotH = H - mt - mb
   const yMax = niceMax(Math.max(eq[0], pr[0]))
-  const x = (i) => ml + plotW * (n > 1 ? i / (n - 1) : 0)
-  const y = (v) => H - mb - plotH * (v / yMax)
-  const path = (arr) => arr.map((v, i) => (i ? 'L' : 'M') + ' ' + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ')
+  const x = (i: number): number => ml + plotW * (n > 1 ? i / (n - 1) : 0)
+  const y = (v: number): number => H - mb - plotH * (v / yMax)
+  const path = (arr: number[]): string => arr.map((v, i) => (i ? 'L' : 'M') + ' ' + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ')
   const selV = store.method === 'equal' ? eq : pr
   const otherV = store.method === 'equal' ? pr : eq
 
@@ -67,7 +91,7 @@ const chart = computed(() => {
   const rows = store.series
   const step = Math.max(1, Math.round(n / 24))
   const base = H - mb
-  const bars = []
+  const bars: Bar[] = []
   for (let i = 0; i < n; i += step) {
     const r = rows[i]
     const bw = (plotW / n) * step * 0.5
@@ -85,7 +109,7 @@ const chart = computed(() => {
   }
 
   /* 两种方式的 本金 / 利息 / 总还款 汇总 */
-  const totalsOf = (rs) => {
+  const totalsOf = (rs: AmortRow[]): Totals => {
     const last = rs[n - 1]
     const P = store.loanTotalWan * 10000
     return { prinEnd: P - last.balance, intEnd: last.cum, totalEnd: P - last.balance + last.cum }
@@ -113,7 +137,7 @@ const chart = computed(() => {
 
 /* ---- 复制 ---- */
 const copied = ref(false)
-function copyResult() {
+function copyResult(): void {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(store.copyText).then(() => {
       copied.value = true
