@@ -17,25 +17,42 @@ const COMM_RATE_CHIPS = [3.0, 3.3]
 
 /* 滑块填充比例 */
 const pct = (v, min, max) => ((v - min) / (max - min) * 100) + '%'
-const priceFill = () => pct(store.price, 10, 3000)
-const loanFill = () => pct(store.loan, 10, 3000)
+const priceFill = () => pct(store.price, 1, 3000)
+const loanFill = () => pct(store.loan, 1, 3000)
 const rateFill = () => pct(store.activeRate, 0.5, 6)
 const yearsFill = () => pct(store.years, 1, 30)
 const fundMonthlyFill = () => pct(store.fundMonthly, 0, 10000)
 const fundSliderFill = () => (store.fundComm.total > 0 ? store.fundComm.fund / store.fundComm.total * 100 : 0) + '%'
 
-/* 数字输入：解析后写入 store（不即时钳制，保留输入过程） */
+/* 数字输入：解析后写入 store，并立即在 DOM 回显钳制后的合法值。
+   避免受控绑定下「钳制结果与当前值相同 → 不重渲染 → 输入框残留非法文本」的问题；
+   同时保留 :value 绑定以便滑块/快捷按钮/持久化恢复时同步显示 */
+function makeNumHandler(getVal, setter) {
+  return {
+    onInput: (e) => {
+      const v = parseFloat(e.target.value)
+      if (!isNaN(v)) { setter(v); e.target.value = String(getVal()) }
+    },
+    onBlur: (e) => {
+      const v = parseFloat(e.target.value)
+      if (!isNaN(v)) { setter(v); e.target.value = String(getVal()) }
+    }
+  }
+}
+const priceNum = makeNumHandler(() => store.price, store.setPrice)
+const downNum = makeNumHandler(() => store.downRatio, store.setDownRatio)
+const loanNum = makeNumHandler(() => store.loan, store.setLoan)
+const yearsNum = makeNumHandler(() => store.years, store.setYears)
+const fundMonthlyNum = makeNumHandler(() => store.fundMonthly, store.setFundMonthly)
+const fundWanNum = makeNumHandler(() => store.fundComm.fund, store.setFundWan)
+const commWanNum = makeNumHandler(() => store.fundComm.comm, store.setCommWan)
+
+/* 滑块 / 利率输入（本身在范围内或非受控）：仅解析写入即可 */
 const numInput = (fn) => (e) => {
   const v = parseFloat(e.target.value)
   if (!isNaN(v)) fn(v)
 }
-const onPriceInput = numInput(store.setPrice)
-const onDownInput = numInput(store.setDownRatio)
-const onLoanInput = numInput(store.setLoan)
-const onYearsInput = numInput(store.setYears)
-const onFundMonthlyInput = numInput(store.setFundMonthly)
-const onFundWanInput = numInput(store.setFundWan)
-const onCommWanInput = numInput(store.setCommWan)
+const onFundWanSlider = numInput(store.setFundWan)
 const onRateInput = numInput(store.setRate)
 const onRateFundInput = numInput(store.setRateFund)
 const onRateCommInput = numInput(store.setRateComm)
@@ -92,14 +109,14 @@ onMounted(syncRateInputs)
             <span class="field-readout">{{ store.price.toLocaleString('zh-CN') }}<span class="unit">万</span></span>
           </div>
           <input
-            type="range" min="10" max="3000" step="1"
+            type="range" min="1" max="3000" step="1"
             v-model.number="store.price"
             :style="{ '--fill': priceFill() }"
             aria-label="房屋总价（万元）"
           >
           <div class="field-foot">
             <div class="num-input">
-              <input type="number" min="10" max="5000" step="1" :value="store.price" @input="onPriceInput" aria-label="房屋总价（万元）">
+              <input type="number" min="1" max="5000" step="1" :value="store.price" @input="priceNum.onInput" @blur="priceNum.onBlur" aria-label="房屋总价（万元）">
               <span class="suffix">万</span>
             </div>
           </div>
@@ -121,7 +138,7 @@ onMounted(syncRateInputs)
               >{{ p }}%</button>
             </div>
             <div class="num-input">
-              <input type="number" min="0" max="95" step="1" :value="store.downRatio" @input="onDownInput" aria-label="首付比例（%）">
+              <input type="number" min="0" max="95" step="1" :value="store.downRatio" @input="downNum.onInput" @blur="downNum.onBlur" aria-label="首付比例（%）">
               <span class="suffix">%</span>
             </div>
             <span class="mono-sub">首付 ≈ {{ money(store.downWan * 10000) }}</span>
@@ -142,14 +159,14 @@ onMounted(syncRateInputs)
           <span class="field-readout">{{ store.loan.toLocaleString('zh-CN') }}<span class="unit">万</span></span>
         </div>
         <input
-          type="range" min="10" max="3000" step="1"
+          type="range" min="1" max="3000" step="1"
           v-model.number="store.loan"
           :style="{ '--fill': loanFill() }"
           aria-label="贷款金额（万元）"
         >
         <div class="field-foot">
           <div class="num-input">
-            <input type="number" min="10" max="3000" step="1" :value="store.loan" @input="onLoanInput" aria-label="贷款金额（万元）">
+            <input type="number" min="1" max="3000" step="1" :value="store.loan" @input="loanNum.onInput" @blur="loanNum.onBlur" aria-label="贷款金额（万元）">
             <span class="suffix">万</span>
           </div>
           <span class="mono-sub">≈ {{ money(store.loan * 10000) }}</span>
@@ -178,14 +195,14 @@ onMounted(syncRateInputs)
         <!-- 直接输入模式：总额可编辑 -->
         <template v-if="!store.isPriceMode">
           <input
-            type="range" min="10" max="3000" step="1"
+            type="range" min="1" max="3000" step="1"
             v-model.number="store.loan"
             :style="{ '--fill': loanFill() }"
             aria-label="贷款总额（万元）"
           >
           <div class="field-foot">
             <div class="num-input">
-              <input type="number" min="10" max="3000" step="1" :value="store.loan" @input="onLoanInput" aria-label="贷款总额（万元）">
+              <input type="number" min="1" max="3000" step="1" :value="store.loan" @input="loanNum.onInput" @blur="loanNum.onBlur" aria-label="贷款总额（万元）">
               <span class="suffix">万</span>
             </div>
             <span class="mono-sub">≈ {{ money(store.loan * 10000) }}</span>
@@ -205,13 +222,13 @@ onMounted(syncRateInputs)
             <input
               type="range" :min="0" :max="Math.max(store.fundComm.total, 1)" step="1"
               :value="store.fundComm.fund"
-              @input="onFundWanInput"
+              @input="onFundWanSlider"
               :style="{ '--fill': fundSliderFill() }"
               aria-label="公积金贷款金额（万元）"
             >
             <div class="field-foot">
               <div class="num-input">
-                <input type="number" :min="0" :max="Math.max(store.fundComm.total, 1)" step="1" :value="store.fundComm.fund" @input="onFundWanInput" aria-label="公积金贷款金额（万元）">
+                <input type="number" :min="0" :max="Math.max(store.fundComm.total, 1)" step="1" :value="store.fundComm.fund" @input="fundWanNum.onInput" @blur="fundWanNum.onBlur" aria-label="公积金贷款金额（万元）">
                 <span class="suffix">万</span>
               </div>
             </div>
@@ -222,7 +239,7 @@ onMounted(syncRateInputs)
             <div class="combo-readout">{{ store.fundComm.comm.toLocaleString('zh-CN') }} 万</div>
             <div class="field-foot">
               <div class="num-input">
-                <input type="number" :min="0" :max="Math.max(store.fundComm.total, 1)" step="1" :value="store.fundComm.comm" @input="onCommWanInput" aria-label="商业贷款金额（万元）">
+                <input type="number" :min="0" :max="Math.max(store.fundComm.total, 1)" step="1" :value="store.fundComm.comm" @input="commWanNum.onInput" @blur="commWanNum.onBlur" aria-label="商业贷款金额（万元）">
                 <span class="suffix">万</span>
               </div>
             </div>
@@ -247,7 +264,7 @@ onMounted(syncRateInputs)
             <button v-for="y in YEAR_CHIPS" :key="y" class="chip" @click="store.setYears(y)">{{ y }}年</button>
           </div>
           <div class="num-input">
-            <input type="number" min="1" max="30" step="1" :value="store.years" @input="onYearsInput" aria-label="贷款年限（年）">
+            <input type="number" min="1" max="30" step="1" :value="store.years" @input="yearsNum.onInput" @blur="yearsNum.onBlur" aria-label="贷款年限（年）">
             <span class="suffix">年</span>
           </div>
         </div>
@@ -377,7 +394,7 @@ onMounted(syncRateInputs)
             >{{ m.toLocaleString('zh-CN') }}</button>
           </div>
           <div class="num-input">
-            <input type="number" min="0" max="50000" step="50" :value="store.fundMonthly" @input="onFundMonthlyInput" aria-label="每月公积金金额（元）">
+            <input type="number" min="0" max="50000" step="50" :value="store.fundMonthly" @input="fundMonthlyNum.onInput" @blur="fundMonthlyNum.onBlur" aria-label="每月公积金金额（元）">
             <span class="suffix">元</span>
           </div>
           <span class="mono-sub">月供 − 公积金 = 实际自付</span>

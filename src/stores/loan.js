@@ -181,9 +181,9 @@ export const useLoanStore = defineStore('loan', {
     setLoanType(t) { this.loanType = t },
     setMethod(m) { this.method = m },
     setYears(v) { this.years = Math.min(30, Math.max(1, Math.round(parseFloat(v)))) },
-    setPrice(v) { this.price = Math.min(5000, Math.max(10, parseFloat(v))) },
+    setPrice(v) { this.price = Math.min(5000, Math.max(1, parseFloat(v))) },
     setDownRatio(v) { this.downRatio = Math.min(95, Math.max(0, parseFloat(v))) },
-    setLoan(v) { this.loan = Math.min(3000, Math.max(10, parseFloat(v))) },
+    setLoan(v) { this.loan = Math.min(3000, Math.max(1, parseFloat(v))) },
     setRate(v) {
       const val = Math.min(12, Math.max(0, parseFloat(v)))
       if (this.loanType === 'fund') this.rateFund = val
