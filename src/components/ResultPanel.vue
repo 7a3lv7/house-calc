@@ -73,7 +73,8 @@ const chart = computed(() => {
     crossIdx,                          // 交点所在期（0 基）
     crossV: crossIdx >= 0 ? pr[crossIdx] : 0,  // 交点处的月供
     prFirst: pr[0],                    // 等额本金首期月供
-    prLast: pr[n - 1]                  // 等额本金末期月供
+    prLast: pr[n - 1],                 // 等额本金末期月供
+    eqValue: eq[0]                     // 等额本息月供（平直线高度）
   }
 })
 
@@ -190,6 +191,9 @@ function copyResult() {
         <path :d="chart.selArea" fill="url(#gradSel)" stroke="none"/>
         <path :d="chart.selPath" fill="none" stroke="#1e4d3b" stroke-width="2.4" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
         <circle :cx="chart.x(chart.n - 1)" :cy="chart.y(chart.selV[chart.n - 1])" r="3.5" fill="#b9552f" stroke="#f3edde" stroke-width="1.5"/>
+        <!-- 等额本息月供在 Y 轴的标注 -->
+        <line :x1="60" :y1="chart.y(chart.eqValue)" :x2="chart.x(0)" :y2="chart.y(chart.eqValue)" stroke="#2f6b52" stroke-opacity=".55" stroke-width="1.5"/>
+        <text :x="56" :y="chart.y(chart.eqValue) + 4" text-anchor="end" fill="#2f6b52" font-size="11.5" font-weight="600" stroke="#f3edde" stroke-width="3" paint-order="stroke">¥{{ fmt(chart.eqValue) }}</text>
         <!-- 等额本金首期 / 末期月供数值 -->
         <text :x="chart.x(0) + 6" :y="chart.y(chart.prFirst) + 4" text-anchor="start" fill="#b9552f" font-size="11.5" font-weight="600" stroke="#f3edde" stroke-width="3" paint-order="stroke">¥{{ fmt(chart.prFirst) }}</text>
         <text :x="chart.x(chart.n - 1) - 6" :y="chart.y(chart.prLast) - 8" text-anchor="end" fill="#b9552f" font-size="11.5" font-weight="600" stroke="#f3edde" stroke-width="3" paint-order="stroke">¥{{ fmt(chart.prLast) }}</text>
