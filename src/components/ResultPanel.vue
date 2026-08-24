@@ -46,6 +46,15 @@ const chart = computed(() => {
   const path = (arr) => arr.map((v, i) => (i ? 'L' : 'M') + ' ' + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ')
   const selV = store.method === 'equal' ? eq : pr
   const otherV = store.method === 'equal' ? pr : eq
+
+  /* 两曲线交点：等额本金月供首次 ≤ 等额本息月供的期数（利率为 0 时两线重合，无交点） */
+  let crossIdx = -1
+  if (pr[0] > eq[0]) {
+    for (let i = 1; i < n; i++) {
+      if (pr[i] <= eq[i]) { crossIdx = i; break }
+    }
+  }
+
   return {
     n, x, y, yMax,
     selV, otherV,
@@ -53,7 +62,9 @@ const chart = computed(() => {
     otherPath: path(otherV),
     selArea: path(selV) + ` L ${x(n - 1).toFixed(1)} ${H - mb} L ${x(0).toFixed(1)} ${H - mb} Z`,
     yTicks: [0, 0.5, 1].map((t) => ({ v: yMax * t, y: y(yMax * t) })),
-    xTicks: n > 1 ? [0, Math.floor((n - 1) / 2), n - 1] : [0]
+    xTicks: n > 1 ? [0, Math.floor((n - 1) / 2), n - 1] : [0],
+    crossIdx,                          // 交点所在期（0 基）
+    crossV: crossIdx >= 0 ? pr[crossIdx] : 0  // 交点处的月供
   }
 })
 
@@ -170,7 +181,16 @@ function copyResult() {
         <path :d="chart.selArea" fill="url(#gradSel)" stroke="none"/>
         <path :d="chart.selPath" fill="none" stroke="#1e4d3b" stroke-width="2.4" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
         <circle :cx="chart.x(chart.n - 1)" :cy="chart.y(chart.selV[chart.n - 1])" r="3.5" fill="#b9552f" stroke="#f3edde" stroke-width="1.5"/>
+        <!-- 两曲线交点 -->
+        <template v-if="chart.crossIdx >= 0">
+          <line :x1="chart.x(chart.crossIdx)" :y1="chart.y(chart.crossV)" :x2="chart.x(chart.crossIdx)" :y2="250" stroke="rgba(161,126,46,.5)" stroke-dasharray="2 3"/>
+          <circle :cx="chart.x(chart.crossIdx)" :cy="chart.y(chart.crossV)" r="4.5" fill="#a17e2e" stroke="#f3edde" stroke-width="2"/>
+          <text :x="chart.x(chart.crossIdx)" :y="chart.y(chart.crossV) - 10" text-anchor="middle" fill="#a17e2e" font-size="11.5" font-weight="600">第 {{ chart.crossIdx + 1 }} 期</text>
+        </template>
       </svg>
+      <p v-if="chart.crossIdx >= 0" class="chart-note">
+        两曲线于<b>第 {{ chart.crossIdx + 1 }} 期</b>相交,此后等额本金月供开始低于等额本息
+      </p>
     </div>
 
     <div class="compare" v-html="store.compareText"></div>
