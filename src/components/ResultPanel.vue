@@ -183,7 +183,7 @@ function copyResult() {
         <line v-for="t in chart.yTicks" :key="'g' + t.v" :x1="64" :y1="t.y" :x2="702" :y2="t.y" stroke="rgba(35,42,35,.09)" stroke-dasharray="2 4"/>
         <text v-for="t in chart.yTicks" :key="'l' + t.v" :x="56" :y="t.y + 4" text-anchor="end">{{ fmt(t.v) }}</text>
         <line v-for="i in chart.xTicks" :key="'x' + i" :x1="chart.x(i)" :y1="250" :x2="chart.x(i)" :y2="254" stroke="rgba(35,42,35,.25)"/>
-        <text v-for="i in chart.xTicks" :key="'xt' + i" :x="chart.x(i)" :y="268" text-anchor="middle">{{ periodLabel(i + 1) }}</text>
+        <text v-for="i in chart.xTicks" :key="'xt' + i" :x="chart.x(i)" :y="268" text-anchor="middle">第 {{ i + 1 }} 期</text>
         <path :d="chart.otherPath" fill="none" stroke="rgba(185,85,47,.45)" stroke-width="1.6" stroke-dasharray="5 5" vector-effect="non-scaling-stroke"/>
         <path :d="chart.selArea" fill="url(#gradSel)" stroke="none"/>
         <path :d="chart.selPath" fill="none" stroke="#1e4d3b" stroke-width="2.4" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
