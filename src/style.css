@@ -306,7 +306,11 @@
     color: rgba(35,42,35,.045); line-height: 1; pointer-events: none; user-select: none;
   }
 
-  .result-ledger{ padding: 20px 28px 10px; position: relative; }
+  .result-ledger{
+    padding: 20px 28px 10px; position: relative;
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;
+  }
+  .result-main{ flex: none; min-width: 0; }
   .result-label{
     font-family: var(--font-mono); font-size: 12px; letter-spacing: .34em;
     color: var(--ink-soft); text-transform: uppercase;
@@ -322,7 +326,8 @@
   }
   .result-amount .per{ font-size: 15px; color: var(--ink-soft); font-family: var(--font-body); }
   .result-sub{
-    margin-top: 6px; font-family: var(--font-mono); font-size: 12.5px;
+    flex: 1; min-width: 0; margin-top: 4px; text-align: right;
+    font-family: var(--font-mono); font-size: 12.5px;
     color: var(--ink-soft); letter-spacing: .05em; font-variant-numeric: tabular-nums;
   }
   .result-sub b{ color: var(--green-bright); font-weight: 600; }
@@ -506,6 +511,8 @@
   }
   /* 手机窄屏：还款计划表改为卡片式布局，消除横向滚动条 */
   @media (max-width: 640px){
+    .result-ledger{ flex-direction: column; gap: 14px; }
+    .result-sub{ text-align: left; margin-top: 0; }
     .table-scroll{ overflow-x: visible; }
     table, thead, tbody, tr, th, td{ display: block; }
     table{ width: 100%; min-width: 0; }

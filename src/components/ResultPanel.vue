@@ -76,26 +76,28 @@ function copyResult() {
     <div class="watermark" aria-hidden="true">¥</div>
 
     <div class="result-ledger">
-      <div class="result-label">每月月供 · Monthly Payment</div>
-      <div class="result-amount">
-        <span class="yen">¥</span>
-        <span class="value" aria-live="polite">{{ fmt(shown) }}</span>
-        <span class="per">/月</span>
-      </div>
+      <div class="result-main">
+        <div class="result-label">每月月供 · Monthly Payment</div>
+        <div class="result-amount">
+          <span class="yen">¥</span>
+          <span class="value" aria-live="polite">{{ fmt(shown) }}</span>
+          <span class="per">/月</span>
+        </div>
 
-      <!-- 实际自付月供收据条 -->
-      <div v-if="store.fundMonthly > 0" class="net-strip" aria-label="实际自付月供">
-        <div class="net-row">
-          <span class="net-l">每月月供</span>
-          <span class="net-v">{{ money(store.summary.M) }}</span>
-        </div>
-        <div class="net-row sub">
-          <span class="net-l">− 公积金抵扣</span>
-          <span class="net-v green">{{ money(store.fundMonthly) }}</span>
-        </div>
-        <div class="net-row net-total">
-          <span class="net-l">实际自付月供</span>
-          <span class="net-v">{{ money(store.netPay) }}</span>
+        <!-- 实际自付月供收据条 -->
+        <div v-if="store.fundMonthly > 0" class="net-strip" aria-label="实际自付月供">
+          <div class="net-row">
+            <span class="net-l">每月月供</span>
+            <span class="net-v">{{ money(store.summary.M) }}</span>
+          </div>
+          <div class="net-row sub">
+            <span class="net-l">− 公积金抵扣</span>
+            <span class="net-v green">{{ money(store.fundMonthly) }}</span>
+          </div>
+          <div class="net-row net-total">
+            <span class="net-l">实际自付月供</span>
+            <span class="net-v">{{ money(store.netPay) }}</span>
+          </div>
         </div>
       </div>
 
