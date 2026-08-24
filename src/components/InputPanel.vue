@@ -172,20 +172,46 @@ onMounted(syncRateInputs)
       <div v-if="store.isCombined" class="field">
         <div class="field-head">
           <label>贷款金额<small>万元</small></label>
-          <span class="field-readout">共 <span>{{ store.fundComm.total.toLocaleString('zh-CN') }}</span><span class="unit">万</span></span>
+          <span class="field-readout">共 <span>{{ store.loanTotalWan.toLocaleString('zh-CN') }}</span><span class="unit">万</span></span>
         </div>
-        <div class="combo-row">
+
+        <!-- 直接输入模式：总额可编辑 -->
+        <template v-if="!store.isPriceMode">
+          <input
+            type="range" min="10" max="3000" step="1"
+            v-model.number="store.loan"
+            :style="{ '--fill': loanFill() }"
+            aria-label="贷款总额（万元）"
+          >
+          <div class="field-foot">
+            <div class="num-input">
+              <input type="number" min="10" max="3000" step="1" :value="store.loan" @input="onLoanInput" aria-label="贷款总额（万元）">
+              <span class="suffix">万</span>
+            </div>
+            <span class="mono-sub">≈ {{ money(store.loan * 10000) }}</span>
+          </div>
+        </template>
+        <!-- 按总价模式：自动计算，只读 -->
+        <template v-else>
+          <div class="loan-readout-card">
+            <span class="big">{{ money(store.loanTotalWan * 10000) }}</span>
+            <span class="hint">= 总价 − 首付</span>
+          </div>
+        </template>
+
+        <div class="combo-row" style="margin-top: 14px">
           <div class="combo-part">
             <div class="combo-label"><span class="dot fund"></span>公积金部分</div>
             <input
               type="range" :min="0" :max="Math.max(store.fundComm.total, 1)" step="1"
-              v-model.number="store.fundWan"
+              :value="store.fundComm.fund"
+              @input="onFundWanInput"
               :style="{ '--fill': fundSliderFill() }"
               aria-label="公积金贷款金额（万元）"
             >
             <div class="field-foot">
               <div class="num-input">
-                <input type="number" :min="0" :max="Math.max(store.fundComm.total, 1)" step="1" :value="store.fundWan" @input="onFundWanInput" aria-label="公积金贷款金额（万元）">
+                <input type="number" :min="0" :max="Math.max(store.fundComm.total, 1)" step="1" :value="store.fundComm.fund" @input="onFundWanInput" aria-label="公积金贷款金额（万元）">
                 <span class="suffix">万</span>
               </div>
             </div>
