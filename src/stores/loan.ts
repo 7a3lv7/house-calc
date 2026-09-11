@@ -61,6 +61,19 @@ export const money = (v: number): string => '¥' + fmt(v)
 
 const r1 = (v: number): number => Math.round(v * 10) / 10
 
+/* ---------- 贷款年限上限 ---------- */
+/* 商业贷款最长 40 年；公积金贷款受政策限制最长 30 年。
+   组合贷由「公积金 + 商贷」两部分组成，为便于管理两部分期限必须一致，
+   因此整体同样受公积金封顶约束，最长 30 年——想要 40 年只能申请纯商业贷款 */
+const YEARS_CAP: Record<LoanType, number> = { commercial: 40, fund: 30, combined: 30 }
+
+/* 可输入的绝对上限：取各类型上限中的最大值 */
+const YEARS_INPUT_MAX = Math.max(...Object.values(YEARS_CAP))
+
+/* 有效年限：超出当前类型上限的部分不写回 state，只在此收窄。
+   这样在类型间来回切换做对比时，用户已输入的年限不会被破坏 */
+const effYearsOf = (s: LoanState): number => Math.min(s.years, YEARS_CAP[s.loanType])
+
 /* 单笔贷款逐月明细（等额本息 / 等额本金） */
 function buildSeries(amountWan: number, years: number, ratePct: number, method: Method): AmortRow[] {
   const P = amountWan * 10000
@@ -97,11 +110,12 @@ function buildSeries(amountWan: number, years: number, ratePct: number, method: 
 /* 按当前贷款类型组装整笔贷款明细（组合贷 = 公积金部分 + 商贷部分按月合并） */
 function buildLoanRows(s: LoanState, method: Method): AmortRow[] {
   const total = s.inputMode === 'price' ? r1(s.price * (1 - s.downRatio / 100)) : s.loan
+  const years = effYearsOf(s)
   if (s.loanType === 'combined') {
     const fund = Math.min(Math.max(0, r1(s.fundWan)), total)
     const comm = r1(total - fund)
-    const f = buildSeries(fund, s.years, s.rateFund, method)
-    const c = buildSeries(comm, s.years, s.rateComm, method)
+    const f = buildSeries(fund, years, s.rateFund, method)
+    const c = buildSeries(comm, years, s.rateComm, method)
     return f.map((r, i) => ({
       i: r.i,
       payment: r.payment + c[i].payment,
@@ -112,7 +126,7 @@ function buildLoanRows(s: LoanState, method: Method): AmortRow[] {
     }))
   }
   const rate = s.loanType === 'fund' ? s.rateFund : s.rateComm
-  return buildSeries(total, s.years, rate, method)
+  return buildSeries(total, years, rate, method)
 }
 
 /* ---------- store ---------- */
@@ -149,6 +163,11 @@ export const useLoanStore = defineStore('loan', {
     isCombined: (s): boolean => s.loanType === 'combined',
     isPriceMode: (s): boolean => s.inputMode === 'price',
     activeRate: (s): number => (s.loanType === 'fund' ? s.rateFund : s.rateComm),
+
+    /* 年限上限（滑块 / 数字框 / 快捷按钮均跟随此值） */
+    maxYears: (s): number => YEARS_CAP[s.loanType],
+    /* 参与计算与显示的年限，见 effYearsOf 说明 */
+    effYears: (s): number => effYearsOf(s),
 
     loanTotalWan: (s): number => (s.inputMode === 'price' ? r1(s.price * (1 - s.downRatio / 100)) : s.loan),
     downWan: (s): number => r1(s.price - (s.inputMode === 'price' ? r1(s.price * (1 - s.downRatio / 100)) : s.loan)),
@@ -245,7 +264,7 @@ export const useLoanStore = defineStore('loan', {
         `贷款类型：${this.TYPE_CN[this.loanType]}`,
         priceLine,
         amountLine,
-        `贷款年限：${this.years} 年（${res.n} 期）`,
+        `贷款年限：${this.effYears} 年（${res.n} 期）`,
         rateLine,
         `还款方式：${this.METHOD_CN[this.method]}`,
         `每月月供：${money(res.M)}`,
@@ -261,7 +280,9 @@ export const useLoanStore = defineStore('loan', {
   actions: {
     setLoanType(t: LoanType) { this.loanType = t },
     setMethod(m: Method) { this.method = m },
-    setYears(v: number | string) { this.years = Math.min(30, Math.max(1, Math.round(parseFloat(String(v))))) },
+    /* 只做绝对范围钳制：允许输入到 40，超出当前贷款类型上限的部分留给 effYears 收窄，
+       因此切换贷款类型不会改写用户已输入的年限 */
+    setYears(v: number | string) { this.years = Math.min(YEARS_INPUT_MAX, Math.max(1, Math.round(parseFloat(String(v))))) },
     setPrice(v: number | string) { this.price = Math.min(5000, Math.max(1, parseFloat(String(v)))) },
     setDownRatio(v: number | string) { this.downRatio = Math.min(95, Math.max(0, parseFloat(String(v)))) },
     setLoan(v: number | string) { this.loan = Math.min(3000, Math.max(1, parseFloat(String(v)))) },

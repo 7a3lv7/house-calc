@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useLoanStore, money, type LoanType } from '../stores/loan'
 
 const store = useLoanStore()
@@ -10,12 +10,13 @@ interface TypeOption {
   desc: string
 }
 const TYPES: TypeOption[] = [
-  { key: 'commercial', name: '商业贷款', desc: 'LPR 浮动利率，额度高' },
+  { key: 'commercial', name: '商业贷款', desc: 'LPR 浮动利率，最长 40 年' },
   { key: 'fund', name: '公积金贷款', desc: '利率最低，额度受缴存限制' },
   { key: 'combined', name: '组合贷款', desc: '公积金 + 商贷搭配，兼顾利率与额度' }
 ]
 const DOWN_CHIPS: number[] = [20, 30, 40, 50]
-const YEAR_CHIPS: number[] = [5, 10, 15, 20, 25, 30]
+/* 35 / 40 年仅有商业贷款可选，模板中按 store.maxYears 过滤 */
+const YEAR_CHIPS: number[] = [5, 10, 15, 20, 25, 30, 35, 40]
 const FUND_MONTHLY_CHIPS: number[] = [0, 1000, 2000, 3000]
 const FUND_RATE_CHIPS: number[] = [2.85, 3.325]
 const COMM_RATE_CHIPS: number[] = [3.0, 3.3]
@@ -25,7 +26,9 @@ const pct = (v: number, min: number, max: number): string => ((v - min) / (max -
 const priceFill = (): string => pct(store.price, 1, 3000)
 const loanFill = (): string => pct(store.loan, 1, 3000)
 const rateFill = (): string => pct(store.activeRate, 0.5, 6)
-const yearsFill = (): string => pct(store.years, 1, 30)
+const yearsFill = (): string => pct(store.effYears, 1, store.maxYears)
+/* 超出当前贷款类型上限的快捷年限不展示（商贷 8 个，公积金/组合贷 6 个） */
+const yearChips = computed<number[]>(() => YEAR_CHIPS.filter((y) => y <= store.maxYears))
 const fundMonthlyFill = (): string => pct(store.fundMonthly, 0, 10000)
 const fundSliderFill = (): string => (store.fundComm.total > 0 ? store.fundComm.fund / store.fundComm.total * 100 : 0) + '%'
 
@@ -49,7 +52,7 @@ function makeNumHandler(getVal: () => number, setter: (v: number) => void) {
 const priceNum = makeNumHandler(() => store.price, store.setPrice)
 const downNum = makeNumHandler(() => store.downRatio, store.setDownRatio)
 const loanNum = makeNumHandler(() => store.loan, store.setLoan)
-const yearsNum = makeNumHandler(() => store.years, store.setYears)
+const yearsNum = makeNumHandler(() => store.effYears, store.setYears)
 const fundMonthlyNum = makeNumHandler(() => store.fundMonthly, store.setFundMonthly)
 const fundWanNum = makeNumHandler(() => store.fundComm.fund, store.setFundWan)
 const commWanNum = makeNumHandler(() => store.fundComm.comm, store.setCommWan)
@@ -60,6 +63,7 @@ const numInput = (fn: (v: number) => void) => (e: Event): void => {
   if (!isNaN(v)) fn(v)
 }
 const onFundWanSlider = numInput(store.setFundWan)
+const onYearsSlider = numInput(store.setYears)
 const onRateInput = numInput(store.setRate)
 const onRateFundInput = numInput(store.setRateFund)
 const onRateCommInput = numInput(store.setRateComm)
@@ -252,26 +256,34 @@ onMounted(syncRateInputs)
         </div>
       </div>
 
-      <!-- 贷款年限 -->
+      <!-- 贷款年限：上限随贷款类型变化（商贷 40 年，公积金 / 组合贷 30 年） -->
       <div class="field">
         <div class="field-head">
           <label>贷款年限<small>年</small></label>
-          <span class="field-readout">{{ store.years }}<span class="unit">年</span></span>
+          <span class="field-readout">{{ store.effYears }}<span class="unit">年</span><span class="sep">·</span>最长 {{ store.maxYears }} 年</span>
         </div>
         <input
-          type="range" min="1" max="30" step="1"
-          v-model.number="store.years"
+          type="range" min="1" :max="store.maxYears" step="1"
+          :value="store.effYears"
+          @input="onYearsSlider"
           :style="{ '--fill': yearsFill() }"
           aria-label="贷款年限（年）"
         >
         <div class="field-foot">
           <div class="chips" role="group" aria-label="快捷年限">
-            <button v-for="y in YEAR_CHIPS" :key="y" class="chip" @click="store.setYears(y)">{{ y }}年</button>
+            <button
+              v-for="y in yearChips"
+              :key="y"
+              class="chip"
+              :class="{ active: store.effYears === y }"
+              @click="store.setYears(y)"
+            >{{ y }}年</button>
           </div>
           <div class="num-input">
-            <input type="number" min="1" max="30" step="1" :value="store.years" @input="yearsNum.onInput" @blur="yearsNum.onBlur" aria-label="贷款年限（年）">
+            <input type="number" min="1" :max="store.maxYears" step="1" :value="store.effYears" @input="yearsNum.onInput" @blur="yearsNum.onBlur" aria-label="贷款年限（年）">
             <span class="suffix">年</span>
           </div>
+          <span v-if="store.isCombined" class="mono-sub">两部分期限须一致，最长 30 年</span>
         </div>
       </div>
 
