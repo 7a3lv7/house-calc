@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { useLoanStore, money, type LoanType } from '../stores/loan'
+import { useLoanStore, money, wan, type LoanType } from '../stores/loan'
 
 const store = useLoanStore()
 
@@ -32,21 +32,26 @@ const yearChips = computed<number[]>(() => YEAR_CHIPS.filter((y) => y <= store.m
 const fundMonthlyFill = (): string => pct(store.fundMonthly, 0, 10000)
 const fundSliderFill = (): string => (store.fundComm.total > 0 ? store.fundComm.fund / store.fundComm.total * 100 : 0) + '%'
 
-/* 数字输入：解析后写入 store，并立即在 DOM 回显钳制后的合法值。
+/* 数字输入：解析后写入 store，并在 DOM 回显钳制后的合法值。
    避免受控绑定下「钳制结果与当前值相同 → 不重渲染 → 输入框残留非法文本」的问题；
-   同时保留 :value 绑定以便滑块/快捷按钮/持久化恢复时同步显示 */
+   同时保留 :value 绑定以便滑块/快捷按钮/持久化恢复时同步显示。
+
+   回写只在「钳制真的改动了数值」时才做：用户敲 "150." 时浏览器把 .value 报成 "150"，
+   敲 "0.50" 时也该原样保留——这两种中间态的解析结果与钳制值相同，
+   若一律回写就会把刚敲下的小数点/数字抹掉，金额永远输不进小数 */
 function makeNumHandler(getVal: () => number, setter: (v: number) => void) {
+  const commit = (el: HTMLInputElement, normalize: boolean): void => {
+    const typed = parseFloat(el.value)
+    if (isNaN(typed)) return
+    setter(typed)
+    const next = String(getVal())
+    if (normalize || typed !== Number(next)) el.value = next
+  }
   return {
-    onInput: (e: Event): void => {
-      const el = e.target as HTMLInputElement
-      const v = parseFloat(el.value)
-      if (!isNaN(v)) { setter(v); el.value = String(getVal()) }
-    },
-    onBlur: (e: Event): void => {
-      const el = e.target as HTMLInputElement
-      const v = parseFloat(el.value)
-      if (!isNaN(v)) { setter(v); el.value = String(getVal()) }
-    }
+    /* 输入中：保留用户正在拼的中间态 */
+    onInput: (e: Event): void => commit(e.target as HTMLInputElement, false),
+    /* 失焦：归一化显示（"150." → "150"） */
+    onBlur: (e: Event): void => commit(e.target as HTMLInputElement, true)
   }
 }
 const priceNum = makeNumHandler(() => store.price, store.setPrice)
@@ -81,7 +86,9 @@ function syncRateInputs(): void {
 watch(() => store.activeRate, syncRateInputs)
 watch(() => store.rateFund, syncRateInputs)
 watch(() => store.rateComm, syncRateInputs)
-watch(() => store.loanType, syncRateInputs)
+/* flush: 'post' 不可省：切到组合贷时 v-else 分支（两个利率框）是在回调之后才渲染的，
+   默认的 'pre' 会让模板 ref 仍为 null，同步落空、输入框一片空白 */
+watch(() => store.loanType, syncRateInputs, { flush: 'post' })
 onMounted(syncRateInputs)
 </script>
 
@@ -117,7 +124,7 @@ onMounted(syncRateInputs)
         <div class="field">
           <div class="field-head">
             <label>房屋总价<small>万元</small></label>
-            <span class="field-readout">{{ store.price.toLocaleString('zh-CN') }}<span class="unit">万</span></span>
+            <span class="field-readout">{{ wan(store.price) }}<span class="unit">万</span></span>
           </div>
           <input
             type="range" min="1" max="3000" step="1"
@@ -127,16 +134,17 @@ onMounted(syncRateInputs)
           >
           <div class="field-foot">
             <div class="num-input">
-              <input type="number" min="1" max="5000" step="1" :value="store.price" @input="priceNum.onInput" @blur="priceNum.onBlur" aria-label="房屋总价（万元）">
+              <input type="number" min="1" max="5000" step="any" :value="store.price" @input="priceNum.onInput" @blur="priceNum.onBlur" aria-label="房屋总价（万元）">
               <span class="suffix">万</span>
             </div>
+            <span class="mono-sub">≈ {{ money(store.price * 10000) }}</span>
           </div>
         </div>
 
         <div class="field">
           <div class="field-head">
             <label>首付比例</label>
-            <span class="field-readout">{{ store.downRatio }}<span class="unit">%</span><span class="sep">·</span>{{ store.downWan.toLocaleString('zh-CN') }}<span class="unit">万</span></span>
+            <span class="field-readout">{{ store.downRatio }}<span class="unit">%</span><span class="sep">·</span>{{ wan(store.downWan) }}<span class="unit">万</span></span>
           </div>
           <div class="field-foot">
             <div class="chips" role="group" aria-label="常用首付比例">
@@ -167,7 +175,7 @@ onMounted(syncRateInputs)
       <div v-if="!store.isPriceMode && !store.isCombined" class="field">
         <div class="field-head">
           <label>贷款金额<small>万元</small></label>
-          <span class="field-readout">{{ store.loan.toLocaleString('zh-CN') }}<span class="unit">万</span></span>
+          <span class="field-readout">{{ wan(store.loan) }}<span class="unit">万</span></span>
         </div>
         <input
           type="range" min="1" max="3000" step="1"
@@ -177,7 +185,7 @@ onMounted(syncRateInputs)
         >
         <div class="field-foot">
           <div class="num-input">
-            <input type="number" min="1" max="3000" step="1" :value="store.loan" @input="loanNum.onInput" @blur="loanNum.onBlur" aria-label="贷款金额（万元）">
+            <input type="number" min="1" max="3000" step="any" :value="store.loan" @input="loanNum.onInput" @blur="loanNum.onBlur" aria-label="贷款金额（万元）">
             <span class="suffix">万</span>
           </div>
           <span class="mono-sub">≈ {{ money(store.loan * 10000) }}</span>
@@ -188,7 +196,7 @@ onMounted(syncRateInputs)
       <div v-if="store.isPriceMode && !store.isCombined" class="field">
         <div class="field-head">
           <label>贷款金额<small>自动计算</small></label>
-          <span class="field-readout">{{ store.loanTotalWan.toLocaleString('zh-CN') }}<span class="unit">万</span></span>
+          <span class="field-readout">{{ wan(store.loanTotalWan) }}<span class="unit">万</span></span>
         </div>
         <div class="loan-readout-card">
           <span class="big">{{ money(store.loanTotalWan * 10000) }}</span>
@@ -200,7 +208,7 @@ onMounted(syncRateInputs)
       <div v-if="store.isCombined" class="field">
         <div class="field-head">
           <label>贷款金额<small>万元</small></label>
-          <span class="field-readout">共 <span>{{ store.loanTotalWan.toLocaleString('zh-CN') }}</span><span class="unit">万</span></span>
+          <span class="field-readout">共 <span>{{ wan(store.loanTotalWan) }}</span><span class="unit">万</span></span>
         </div>
 
         <!-- 直接输入模式：总额可编辑 -->
@@ -213,7 +221,7 @@ onMounted(syncRateInputs)
           >
           <div class="field-foot">
             <div class="num-input">
-              <input type="number" min="1" max="3000" step="1" :value="store.loan" @input="loanNum.onInput" @blur="loanNum.onBlur" aria-label="贷款总额（万元）">
+              <input type="number" min="1" max="3000" step="any" :value="store.loan" @input="loanNum.onInput" @blur="loanNum.onBlur" aria-label="贷款总额（万元）">
               <span class="suffix">万</span>
             </div>
             <span class="mono-sub">≈ {{ money(store.loan * 10000) }}</span>
@@ -240,19 +248,20 @@ onMounted(syncRateInputs)
           </div>
           <div class="combo-part">
             <div class="combo-label"><span class="dot comm"></span>商贷部分<small class="auto-tag">自动</small></div>
-            <div class="combo-readout">{{ store.fundComm.comm.toLocaleString('zh-CN') }} 万</div>
+            <div class="combo-readout">{{ wan(store.fundComm.comm) }} 万</div>
           </div>
           <div class="combo-inputs">
             <div class="num-input">
-              <input type="number" :min="0" :max="Math.max(store.fundComm.total, 1)" step="1" :value="store.fundComm.fund" @input="fundWanNum.onInput" @blur="fundWanNum.onBlur" aria-label="公积金贷款金额（万元）">
+              <input type="number" :min="0" :max="Math.max(store.fundComm.total, 1)" step="any" :value="store.fundComm.fund" @input="fundWanNum.onInput" @blur="fundWanNum.onBlur" aria-label="公积金贷款金额（万元）">
               <span class="suffix">万</span>
             </div>
             <div class="combo-plus" aria-hidden="true">+</div>
             <div class="num-input">
-              <input type="number" :min="0" :max="Math.max(store.fundComm.total, 1)" step="1" :value="store.fundComm.comm" @input="commWanNum.onInput" @blur="commWanNum.onBlur" aria-label="商业贷款金额（万元）">
+              <input type="number" :min="0" :max="Math.max(store.fundComm.total, 1)" step="any" :value="store.fundComm.comm" @input="commWanNum.onInput" @blur="commWanNum.onBlur" aria-label="商业贷款金额（万元）">
               <span class="suffix">万</span>
             </div>
           </div>
+          <div class="combo-yuan mono-sub">公积金 ≈ {{ money(store.fundComm.fund * 10000) }} · 商贷 ≈ {{ money(store.fundComm.comm * 10000) }}</div>
         </div>
       </div>
 

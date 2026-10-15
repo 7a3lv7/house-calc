@@ -258,6 +258,8 @@
   .combo-label .dot.fund{ background: var(--green-bright); box-shadow: 0 0 0 3px rgba(47,107,82,.15); }
   .combo-label .dot.comm{ background: var(--terracotta); box-shadow: 0 0 0 3px rgba(185,85,47,.15); }
   .combo-inputs .num-input input[type="number"]{ width: 116px; }
+  /* 组合区底部：两部分折算成元的实时回显，跨两列 */
+  .combo-yuan{ grid-column: 1 / -1; }
   .field .field-readout .sep{ margin: 0 6px; color: var(--ink-faint); }
 
   .mode-switch-row{ text-align: center; margin-top: -8px; }

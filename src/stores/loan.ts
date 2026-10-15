@@ -59,7 +59,16 @@ export interface SummaryItem {
 export const fmt = (v: number): string => Math.round(v).toLocaleString('zh-CN')
 export const money = (v: number): string => '¥' + fmt(v)
 
-const r1 = (v: number): number => Math.round(v * 10) / 10
+/* 万元金额精确到元：0.0001 万 = 1 元，所以「万元保留 4 位小数」即「精确到元」。
+   两者是同一件事——换回元之后恒为整数，不会残留浮点尾数 */
+const r4 = (v: number): number => Math.round(v * 10000) / 10000
+
+/* 万元 → 元。上面的规律保证结果是整元，取整只为消除 v × 10000 的浮点误差 */
+const toYuan = (v: number): number => Math.round(v * 10000)
+
+/* 万元金额的显示格式化：最多 4 位小数、自动去掉末尾 0、保留千分位。
+   （toLocaleString 默认只保留 3 位小数，会吃掉第 4 位） */
+export const wan = (v: number): string => r4(v).toLocaleString('zh-CN', { maximumFractionDigits: 4 })
 
 /* ---------- 贷款年限上限 ---------- */
 /* 商业贷款最长 40 年；公积金贷款受政策限制最长 30 年。
@@ -76,7 +85,7 @@ const effYearsOf = (s: LoanState): number => Math.min(s.years, YEARS_CAP[s.loanT
 
 /* 单笔贷款逐月明细（等额本息 / 等额本金） */
 function buildSeries(amountWan: number, years: number, ratePct: number, method: Method): AmortRow[] {
-  const P = amountWan * 10000
+  const P = toYuan(amountWan)
   const n = Math.max(1, Math.round(years * 12))
   const r = ratePct / 100 / 12
   const rows: AmortRow[] = []
@@ -109,11 +118,11 @@ function buildSeries(amountWan: number, years: number, ratePct: number, method: 
 
 /* 按当前贷款类型组装整笔贷款明细（组合贷 = 公积金部分 + 商贷部分按月合并） */
 function buildLoanRows(s: LoanState, method: Method): AmortRow[] {
-  const total = s.inputMode === 'price' ? r1(s.price * (1 - s.downRatio / 100)) : s.loan
+  const total = s.inputMode === 'price' ? r4(s.price * (1 - s.downRatio / 100)) : s.loan
   const years = effYearsOf(s)
   if (s.loanType === 'combined') {
-    const fund = Math.min(Math.max(0, r1(s.fundWan)), total)
-    const comm = r1(total - fund)
+    const fund = Math.min(Math.max(0, r4(s.fundWan)), total)
+    const comm = r4(total - fund)
     const f = buildSeries(fund, years, s.rateFund, method)
     const c = buildSeries(comm, years, s.rateComm, method)
     return f.map((r, i) => ({
@@ -169,14 +178,14 @@ export const useLoanStore = defineStore('loan', {
     /* 参与计算与显示的年限，见 effYearsOf 说明 */
     effYears: (s): number => effYearsOf(s),
 
-    loanTotalWan: (s): number => (s.inputMode === 'price' ? r1(s.price * (1 - s.downRatio / 100)) : s.loan),
-    downWan: (s): number => r1(s.price - (s.inputMode === 'price' ? r1(s.price * (1 - s.downRatio / 100)) : s.loan)),
+    loanTotalWan: (s): number => (s.inputMode === 'price' ? r4(s.price * (1 - s.downRatio / 100)) : s.loan),
+    downWan: (s): number => r4(s.price - (s.inputMode === 'price' ? r4(s.price * (1 - s.downRatio / 100)) : s.loan)),
 
     /* 组合贷拆分：公积金部分可调，商贷部分自动补齐 */
     fundComm: (s): FundComm => {
-      const total = s.inputMode === 'price' ? r1(s.price * (1 - s.downRatio / 100)) : s.loan
-      const fund = Math.min(Math.max(0, r1(s.fundWan)), total)
-      return { total, fund: r1(fund), comm: r1(total - fund) }
+      const total = s.inputMode === 'price' ? r4(s.price * (1 - s.downRatio / 100)) : s.loan
+      const fund = Math.min(Math.max(0, r4(s.fundWan)), total)
+      return { total, fund: r4(fund), comm: r4(total - fund) }
     },
 
     series: (s): AmortRow[] => buildLoanRows(s, s.method),
@@ -185,7 +194,7 @@ export const useLoanStore = defineStore('loan', {
 
     summary: (s): SummaryInfo => {
       const rows = buildLoanRows(s, s.method)
-      const P = (s.inputMode === 'price' ? r1(s.price * (1 - s.downRatio / 100)) : s.loan) * 10000
+      const P = toYuan(s.inputMode === 'price' ? r4(s.price * (1 - s.downRatio / 100)) : s.loan)
       let totalPay = 0
       for (const r of rows) totalPay += r.payment
       const totalInt = totalPay - P
@@ -199,7 +208,7 @@ export const useLoanStore = defineStore('loan', {
     typeLine(): string {
       if (this.isCombined) {
         const fc = this.fundComm
-        return `组合贷 公积金 ${fc.fund}万 + 商贷 ${fc.comm}万`
+        return `组合贷 公积金 ${wan(fc.fund)}万 + 商贷 ${wan(fc.comm)}万`
       }
       return this.TYPE_CN[this.loanType]
     },
@@ -215,7 +224,7 @@ export const useLoanStore = defineStore('loan', {
     summaryItems(): SummaryItem[] {
       const fc = this.isCombined ? this.fundComm : null
       const compose = fc
-        ? `组合贷 · 公积金 ${fc.fund}万 + 商贷 ${fc.comm}万`
+        ? `组合贷 · 公积金 ${wan(fc.fund)}万 + 商贷 ${wan(fc.comm)}万`
         : this.TYPE_CN[this.loanType]
       const rate = fc
         ? `公积金 ${this.rateFund.toFixed(2)}% · 商贷 ${this.rateComm.toFixed(2)}%`
@@ -283,9 +292,10 @@ export const useLoanStore = defineStore('loan', {
     /* 只做绝对范围钳制：允许输入到 40，超出当前贷款类型上限的部分留给 effYears 收窄，
        因此切换贷款类型不会改写用户已输入的年限 */
     setYears(v: number | string) { this.years = Math.min(YEARS_INPUT_MAX, Math.max(1, Math.round(parseFloat(String(v))))) },
-    setPrice(v: number | string) { this.price = Math.min(5000, Math.max(1, parseFloat(String(v)))) },
+    /* 金额统一按 r4 落库：state 里的万元值恒为「不超过 4 位小数」，第 5 位起舍入 */
+    setPrice(v: number | string) { this.price = Math.min(5000, Math.max(1, r4(parseFloat(String(v))))) },
     setDownRatio(v: number | string) { this.downRatio = Math.min(95, Math.max(0, parseFloat(String(v)))) },
-    setLoan(v: number | string) { this.loan = Math.min(3000, Math.max(1, parseFloat(String(v)))) },
+    setLoan(v: number | string) { this.loan = Math.min(3000, Math.max(1, r4(parseFloat(String(v))))) },
     setRate(v: number | string) {
       const val = Math.min(12, Math.max(0, parseFloat(String(v))))
       if (this.loanType === 'fund') this.rateFund = val
@@ -293,11 +303,11 @@ export const useLoanStore = defineStore('loan', {
     },
     setRateFund(v: number | string) { this.rateFund = Math.min(12, Math.max(0, parseFloat(String(v)))) },
     setRateComm(v: number | string) { this.rateComm = Math.min(12, Math.max(0, parseFloat(String(v)))) },
-    setFundWan(v: number | string) { this.fundWan = Math.min(this.loanTotalWan, Math.max(0, r1(parseFloat(String(v))))) },
+    setFundWan(v: number | string) { this.fundWan = Math.min(this.loanTotalWan, Math.max(0, r4(parseFloat(String(v))))) },
     setCommWan(v: number | string) {
       const total = this.loanTotalWan
-      const comm = Math.min(total, Math.max(0, r1(parseFloat(String(v)))))
-      this.fundWan = r1(total - comm)
+      const comm = Math.min(total, Math.max(0, r4(parseFloat(String(v)))))
+      this.fundWan = r4(total - comm)
     },
     setFundMonthly(v: number | string) {
       this.fundMonthly = Math.min(50000, Math.max(0, Math.round(parseFloat(String(v)) || 0)))

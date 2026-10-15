@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { useLoanStore } from './loan'
+import { useLoanStore, wan } from './loan'
+
+/* 万元 → 元。4 位小数下换算结果恒为整元，用来断言「元级」不变式 */
+const toYuan = (wanVal: number): number => Math.round(wanVal * 10000)
 
 /* 统一的基准状态：直接输入贷款额 100 万，避免受房价/首付比例影响 */
 function setup(): ReturnType<typeof useLoanStore> {
@@ -102,6 +105,91 @@ describe('超出当前类型上限时保留原值', () => {
 
     expect(s.series.length).toBe(360)
     expect(s.summary.n).toBe(360)
+  })
+})
+
+describe('金额精度：万元保留 4 位小数（0.0001 万 = 1 元）', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it('setPrice 保留 4 位小数', () => {
+    const s = setup()
+    s.setPrice(150.1234)
+    expect(s.price).toBe(150.1234)
+  })
+
+  it('setPrice 从第 5 位小数起舍入', () => {
+    const s = setup()
+    s.setPrice(150.12345)
+    expect(s.price).toBe(150.1235)
+  })
+
+  it('setLoan 保留 4 位小数', () => {
+    const s = setup()
+    s.setLoan(105.0864)
+    expect(s.loan).toBe(105.0864)
+  })
+
+  it('按总价模式：总价 150.1234 万 / 首付 30% → 贷款 105.0864 万、首付 45.037 万', () => {
+    const s = setup()
+    s.$patch({ inputMode: 'price', price: 150.1234, downRatio: 30 })
+
+    expect(s.loanTotalWan).toBe(105.0864)
+    expect(s.downWan).toBe(45.037)
+  })
+
+  it('组合贷拆分保留 4 位小数', () => {
+    const s = setup()
+    s.setLoanType('combined')
+    s.setLoan(105.0864)
+    s.setFundWan(60.0001)
+
+    expect(s.fundComm.fund).toBe(60.0001)
+    expect(s.fundComm.comm).toBe(45.0863)
+  })
+
+  it('组合贷：公积金 + 商贷 换算成元后严格等于总额', () => {
+    const s = setup()
+    s.setLoanType('combined')
+    s.setLoan(105.0864)
+    s.setFundWan(60.0001)
+
+    expect(toYuan(s.fundComm.fund) + toYuan(s.fundComm.comm)).toBe(toYuan(s.fundComm.total))
+  })
+
+  it('本金 P 恒为整元', () => {
+    const s = setup()
+    s.$patch({ inputMode: 'loan', loan: 105.0864 })
+
+    expect(s.summary.P).toBe(1050864)
+  })
+
+  it('本金 P 恒为整元：万元 ×10000 存在浮点误差时也不留尾数', () => {
+    const s = setup()
+    s.$patch({ inputMode: 'price', price: 3000.9999, downRatio: 30 })
+
+    expect(Number.isInteger(s.summary.P)).toBe(true)
+    expect(s.summary.P).toBe(toYuan(s.loanTotalWan))
+  })
+
+  it('每月公积金金额（元）仍取整', () => {
+    const s = setup()
+    s.setFundMonthly(1234.56)
+    expect(s.fundMonthly).toBe(1235)
+  })
+})
+
+describe('wan() 万元显示格式化', () => {
+  it('保留最多 4 位小数', () => {
+    expect(wan(105.0864)).toBe('105.0864')
+  })
+
+  it('去掉末尾多余的 0', () => {
+    expect(wan(60)).toBe('60')
+    expect(wan(105.1)).toBe('105.1')
+  })
+
+  it('保留千分位', () => {
+    expect(wan(1500)).toBe('1,500')
   })
 })
 
